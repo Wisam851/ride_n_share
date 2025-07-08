@@ -4,7 +4,6 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { VehicleRegistrationModule } from './vehicle-registration/vehicle-registration.module';
 import { UserAuthModule } from './auth/user/user-auth.module';
 import { RolesModule } from './roles/roles.module';
 import { RolesSeederModule } from './roles/seeder/roles-seeder.module';
@@ -39,7 +38,6 @@ import { SavedPlacesModule } from './saved-places/saved-places.module';
       }),
     }),
     UsersModule,
-    VehicleRegistrationModule,
     UserAuthModule,
     RolesModule,
     RolesSeederModule,
