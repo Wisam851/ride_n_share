@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -22,90 +23,119 @@ export class SavedPlacesService {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  async create(dto: CreateSavedPlaceDto, userId: number) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new BadRequestException('Invalid user ID');
+  private handleUnknown(err: unknown): never {
+    if (err instanceof BadRequestException || err instanceof NotFoundException) {
+      throw err;
     }
-
-    const savedPlace = this.savedRepo.create({
-      ...dto,
-      user_id: user.id,
-      created_by: user.id,
+    throw new InternalServerErrorException('Unexpected server error occurred', {
+      cause: err as Error,
     });
+  }
 
-    const created = await this.savedRepo.save(savedPlace);
+  async create(dto: CreateSavedPlaceDto, userId: number) {
+    try {
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new BadRequestException('Invalid user ID');
+      }
 
-    return {
-      success: true,
-      message: 'Saved place has been created',
-      data: created,
-    };
+      const savedPlace = this.savedRepo.create({
+        ...dto,
+        user_id: user.id,
+        created_by: user.id,
+      });
+
+      const created = await this.savedRepo.save(savedPlace);
+
+      return {
+        success: true,
+        message: 'Saved place has been created',
+        data: created,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
   }
 
   async findAll(userId: number) {
-    const list = await this.savedRepo.find({
-      where: { user_id: userId },
-      order: { created_at: 'DESC' },
-    });
+    try {
+      const list = await this.savedRepo.find({
+        where: { user_id: userId },
+        order: { created_at: 'DESC' },
+      });
 
-    return {
-      success: true,
-      message: 'Saved places fetched successfully',
-      data: list,
-    };
+      return {
+        success: true,
+        message: 'Saved places fetched successfully',
+        data: list,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
   }
 
   async findOne(id: number, userId: number) {
-    const place = await this.savedRepo.findOne({
-      where: { id, user_id: userId },
-    });
+    try {
+      const place = await this.savedRepo.findOne({
+        where: { id, user_id: userId },
+      });
 
-    if (!place) {
-      throw new NotFoundException('Saved place not found');
+      if (!place) {
+        throw new NotFoundException('Saved place not found');
+      }
+
+      return {
+        success: true,
+        message: 'Saved place fetched successfully',
+        data: place,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    return {
-      success: true,
-      message: 'Saved place fetched successfully',
-      data: place,
-    };
   }
 
   async update(id: number, dto: UpdateSavedPlaceDto, userId: number) {
-    const result = await this.savedRepo.findOne({
-      where: { id, user_id: userId },
-    });
+    try {
+      const record = await this.savedRepo.findOne({
+        where: { id, user_id: userId },
+      });
 
-    if (!result) {
-      throw new NotFoundException('Saved place not found');
+      if (!record) {
+        throw new NotFoundException('Saved place not found');
+      }
+
+      Object.assign(record, dto);
+      const updated = await this.savedRepo.save(record);
+
+      return {
+        success: true,
+        message: 'Saved place updated successfully',
+        data: updated,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    Object.assign(result, dto);
-    const updated = await this.savedRepo.save(result);
-
-    return {
-      success: true,
-      message: 'Saved place updated successfully',
-      data: updated,
-    };
   }
 
   async remove(id: number, userId: number) {
-    const record = await this.savedRepo.findOne({
-      where: { id, user_id: userId },
-    });
+    try {
+      const record = await this.savedRepo.findOne({
+        where: { id, user_id: userId },
+      });
 
-    if (!record) {
-      throw new NotFoundException('Saved place not found');
+      if (!record) {
+        throw new NotFoundException('Saved place not found');
+      }
+
+      await this.savedRepo.remove(record);
+
+      return {
+        success: true,
+        message: 'Saved place deleted successfully',
+        data: {},
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    await this.savedRepo.remove(record);
-
-    return {
-      success: true,
-      message: 'Saved place deleted successfully',
-      data: {},
-    };
   }
 }

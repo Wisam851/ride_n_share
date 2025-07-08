@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,128 +18,160 @@ export class UserAuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string) {
-    if (!email || !password) {
-      throw new BadRequestException('Email and password are required');
+  private handleUnknown(err: unknown): never {
+    if (
+      err instanceof BadRequestException ||
+      err instanceof NotFoundException
+    ) {
+      throw err;
     }
-
-    const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase().trim() },
+    throw new InternalServerErrorException('Unexpected error occurred', {
+      cause: err as Error,
     });
+  }
 
-    if (!user) {
-      throw new BadRequestException('Invalid credentials');
+  async validateUser(email: string, password: string) {
+    try {
+      if (!email || !password) {
+        throw new BadRequestException('Email and password are required');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { email: email.toLowerCase().trim() },
+      });
+
+      if (!user) {
+        throw new BadRequestException('Invalid credentials');
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new BadRequestException('Invalid password');
+      }
+
+      return user;
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new BadRequestException('Invalid password');
-    }
-
-    return user;
   }
 
   async login(user: User) {
-    const payload = { sub: user.id, email: user.email };
-    const token = this.jwtService.sign(payload);
-    user.access_token = token;
+    try {
+      const payload = { sub: user.id, email: user.email };
+      const token = this.jwtService.sign(payload);
+      user.access_token = token;
 
-    await this.userRepository.save(user);
+      await this.userRepository.save(user);
 
-    const { password, access_token, ...cleanUser } = user;
+      const { password, access_token, ...cleanUser } = user;
 
-    return {
-      success: true,
-      message: 'User has been successfully logged in',
-      data: {
-        access_token: token,
-        user: cleanUser,
-      },
-    };
+      return {
+        success: true,
+        message: 'User has been successfully logged in',
+        data: {
+          access_token: token,
+          user: cleanUser,
+        },
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
   }
 
   async profile(user: any) {
-    const loginUser = await this.userRepository.findOne({
-      where: { id: user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-      },
-    });
+    try {
+      const loginUser = await this.userRepository.findOne({
+        where: { id: user.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
 
-    if (!loginUser) {
-      throw new NotFoundException('User not found');
+      if (!loginUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      return {
+        success: true,
+        message: 'User profile fetched successfully',
+        data: loginUser,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    return {
-      success: true,
-      message: 'User profile fetched successfully',
-      data: loginUser,
-    };
   }
 
   async changePassword(
     body: { oldPassword: string; newPassword: string },
     user: any,
   ) {
-    const { oldPassword, newPassword } = body;
+    try {
+      const { oldPassword, newPassword } = body;
 
-    if (!oldPassword || !newPassword) {
-      throw new BadRequestException('Both old and new passwords are required');
+      if (!oldPassword || !newPassword) {
+        throw new BadRequestException(
+          'Both old and new passwords are required',
+        );
+      }
+
+      const loginUser = await this.userRepository.findOne({
+        where: { id: user.id },
+      });
+
+      if (!loginUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      const matched = await bcrypt.compare(oldPassword, loginUser.password);
+      if (!matched) {
+        throw new BadRequestException('Old password is incorrect');
+      }
+
+      if (newPassword.trim().length < 6) {
+        throw new BadRequestException(
+          'New password must be at least 6 characters long',
+        );
+      }
+
+      loginUser.password = await bcrypt.hash(newPassword.trim(), 10);
+      await this.userRepository.save(loginUser);
+
+      return {
+        success: true,
+        message: 'Password updated successfully',
+        data: {},
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    const loginUser = await this.userRepository.findOne({
-      where: { id: user.id },
-    });
-
-    if (!loginUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    const matched = await bcrypt.compare(oldPassword, loginUser.password);
-    if (!matched) {
-      throw new BadRequestException('Old password is incorrect');
-    }
-
-    if (newPassword.trim().length < 6) {
-      throw new BadRequestException(
-        'New password must be at least 6 characters long',
-      );
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
-    loginUser.password = hashedPassword;
-
-    await this.userRepository.save(loginUser);
-
-    return {
-      success: true,
-      message: 'Password updated successfully',
-      data: {},
-    };
   }
 
   async logout(data: User) {
-    const user = await this.userRepository.findOne({
-      where: { id: data.id },
-    });
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: data.id },
+      });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      user.access_token = '';
+      await this.userRepository.save(user);
+
+      return {
+        success: true,
+        message: 'User has been logged out successfully',
+        data: {},
+      };
+    } catch (err) {
+      this.handleUnknown(err);
     }
-
-    user.access_token = '';
-    await this.userRepository.save(user);
-
-    return {
-      success: true,
-      message: 'User has been logged out successfully',
-      data: {},
-    };
   }
 }

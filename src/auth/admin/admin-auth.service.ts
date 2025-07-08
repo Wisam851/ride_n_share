@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,99 +19,135 @@ export class AdminAuthService {
   ) {}
 
   async validateEmail(email: string, password: string) {
-    const admin = await this.adminRepo.findOne({
-      where: { email },
-    });
-    if (!admin) throw new BadRequestException('Invalid Admin Credentials');
+    try {
+      const admin = await this.adminRepo.findOne({ where: { email } });
+      if (!admin) {
+        throw new BadRequestException('Invalid email or password');
+      }
 
-    const match = await bcrypt.compare(password, admin.password);
-    if (!match) throw new BadRequestException('Invlaid password');
+      const match = await bcrypt.compare(password, admin.password);
+      if (!match) {
+        throw new BadRequestException('Invalid email or password');
+      }
 
-    return admin;
+      return admin;
+    } catch (error) {
+      this.handleUnknown(error);
+    }
   }
 
   async login(admin: Admin) {
-    const paylod = { sub: admin.id, email: admin.email };
-    const token = this.jwtSerrvice.sign(paylod);
-    admin.access_token = token;
-    await this.adminRepo.save(admin);
+    try {
+      const payload = { sub: admin.id, email: admin.email };
+      const token = this.jwtSerrvice.sign(payload);
+      admin.access_token = token;
 
-    const { password, access_token, ...safeAdmin } = admin;
+      await this.adminRepo.save(admin);
 
-    return {
-      success: true,
-      message: 'Admin Has Been LogedIn',
-      access_token: token,
-      data: safeAdmin,
-    };
+      const { password, access_token, ...safeAdmin } = admin;
+
+      return {
+        success: true,
+        message: 'Admin has been logged in successfully',
+        access_token: token,
+        data: safeAdmin,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Login failed');
+    }
   }
 
   async getProfile(admin: Admin) {
-    const loginAdmin = await this.adminRepo.findOne({
-      where: { id: admin.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-      },
-    });
-    if (!loginAdmin) throw new BadRequestException('user Not Found');
+    try {
+      const loginAdmin = await this.adminRepo.findOne({
+        where: { id: admin.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+        },
+      });
 
-    return {
-      success: true,
-      message: 'Admin Profile Is fetched',
-      data: loginAdmin,
-    };
+      if (!loginAdmin) {
+        throw new NotFoundException('Admin not found');
+      }
+
+      return {
+        success: true,
+        message: 'Admin profile fetched successfully',
+        data: loginAdmin,
+      };
+    } catch (error) {
+      this.handleUnknown(error);
+    }
   }
 
   async passwordChange(
     body: { oldPassword: string; newPassword: string },
     admin: any,
   ) {
-    const loginAdmin = await this.adminRepo.findOne({
-      where: { id: admin.id },
-    });
+    try {
+      const loginAdmin = await this.adminRepo.findOne({
+        where: { id: admin.id },
+      });
 
-    if (!loginAdmin) {
-      throw new NotFoundException('Admin not found');
-    }
+      if (!loginAdmin) {
+        throw new NotFoundException('Admin not found');
+      }
 
-    const matched = await bcrypt.compare(body.oldPassword, loginAdmin.password);
-    if (!matched) {
-      throw new BadRequestException('Old password does not match');
-    }
-
-    if (!body.newPassword || body.newPassword.trim().length < 6) {
-      throw new BadRequestException(
-        'New password must be at least 6 characters',
+      const matched = await bcrypt.compare(
+        body.oldPassword,
+        loginAdmin.password,
       );
+      if (!matched) {
+        throw new BadRequestException('Old password is incorrect');
+      }
+
+      if (!body.newPassword || body.newPassword.trim().length < 6) {
+        throw new BadRequestException(
+          'New password must be at least 6 characters',
+        );
+      }
+
+      const saltRounds = 10;
+      loginAdmin.password = await bcrypt.hash(body.newPassword, saltRounds);
+
+      await this.adminRepo.save(loginAdmin);
+
+      return {
+        success: true,
+        message: 'Password has been successfully updated',
+        data: {},
+      };
+    } catch (error) {
+      this.handleUnknown(error);
     }
-
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(body.newPassword, saltRounds);
-    loginAdmin.password = hashedPassword;
-
-    await this.adminRepo.save(loginAdmin);
-
-    return {
-      success: true,
-      message: 'Password has been successfully updated',
-      data: {},
-    };
   }
 
   async logout(admin: Admin) {
-    admin.access_token = '';
-    await this.adminRepo.save(admin);
+    try {
+      admin.access_token = '';
+      await this.adminRepo.save(admin);
 
-    return {
-      statud: true,
-      message: 'Logged out Successfully',
-      data: {},
-    };
+      return {
+        success: true,
+        message: 'Logged out successfully',
+        data: {},
+      };
+    } catch (error) {
+      this.handleUnknown(error);
+    }
+  }
+
+  private handleUnknown(err: unknown): never {
+    if (err instanceof BadRequestException || err instanceof NotFoundException)
+      throw err;
+    throw new InternalServerErrorException('Unexpected error', {
+      cause: err as Error,
+    });
   }
 }
