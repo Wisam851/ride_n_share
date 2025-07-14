@@ -10,8 +10,17 @@ socket.on('connect', () => {
   setTimeout(() => {
     const rideData = {
       type: 'private',
-      ride_km: 20,
-      ride_timing: 30,
+      fare_id: 3,
+      ride_km: 80,
+      ride_timing: 15,
+      base_fare: 1600,
+      surcharge_amount: 48,
+      app_fees_amount: 30,
+      company_fees_amount: 80,
+      driver_fees_amount: 240,
+      additional_cost: 0,
+      discount: 0,
+      total_fare: 1758,
       routing: [
         {
           type: 'PICKUP',
@@ -27,7 +36,7 @@ socket.on('connect', () => {
     };
 
     console.log('📦 User 1 sending BOOK_RIDE...');
-    socket.emit('BOOK_RIDE', rideData);
+    socket.emit('book-ride', rideData);
   }, 2000);
 });
 

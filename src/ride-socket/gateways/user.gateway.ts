@@ -73,7 +73,7 @@ export class UserGateway
       const message = errors
         .map((err) => (err.constraints ? Object.values(err.constraints) : []))
         .flat();
-      client.emit('BOOk_RIDE_ERROR', {
+      client.emit('BOOK_RIDE_ERROR', {
         success: false,
         message: 'Validation error',
         error: message,
@@ -82,11 +82,11 @@ export class UserGateway
     }
 
     // ✅ Proceed
-    console.log('📦 Booking DTO:', dto);
-    console.log('🙋‍♂️ User ID:', userId);
+    this.logger.log('📦 Booking DTO:', dto);
+    this.logger.log('🙋‍♂️ User ID:', userId);
 
     const result = await this.rideBookingService.create(dto, userId);
-
+    this.logger.log(result);
     client.emit('BOOK_RIDE_SUCCESS', {
       success: true,
       message: 'Ride Booked Successfull',
@@ -94,6 +94,7 @@ export class UserGateway
     });
 
     const getAllDriverSocketIds = this.socketRegistry.getAllDriversSockets();
+    this.logger.log(`📢 Notifying ${getAllDriverSocketIds.length} drivers`);
     for (const socketId of getAllDriverSocketIds) {
       this.server.to(socketId).emit('new-ride-request', {
         type: 'booking',
