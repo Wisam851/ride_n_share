@@ -24,6 +24,9 @@ export class UserRegisterDto {
   @IsNotEmpty()
   @Match('password', { message: 'Passwords does not match' })
   confirm_password: string;
+
+  @IsNotEmpty()
+  role: string
 }
 
 export class UpdateProfileDto {

@@ -2,11 +2,13 @@ import {
   BeforeInsert,
   Column,
   Entity,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { UserDetails } from './user_details.entity';
 import { Exclude } from 'class-transformer';
+import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
 
 @Entity()
 export class User {
@@ -72,4 +74,7 @@ export class User {
 
   @Column({ nullable: true })
   access_token: string;
+
+  @OneToMany(() => UserRole, (userRole) => userRole.role)
+  userRoles: UserRole[];
 }

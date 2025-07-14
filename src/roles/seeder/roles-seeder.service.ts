@@ -15,7 +15,7 @@ export class RolesSeederService {
     const defaultRoles = [
       { name: 'admin', guard: 'admin' },
       { name: 'manager', guard: 'admin' },
-      { name: 'user', guard: 'user' },
+      { name: 'customer', guard: 'customer' },
       { name: 'driver', guard: 'user' },
     ];
 
