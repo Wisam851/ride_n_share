@@ -11,6 +11,8 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/users/entity/user.entity';
 import { Role } from 'src/roles/entity/roles.entity';
 import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
+import { UpdateProfileDto, UserRegisterDto } from './dtos/user-auth.dto';
+import { cleanObject } from 'src/common/utils/sanitize.util';
 
 @Injectable()
 export class UserAuthService {
@@ -34,6 +36,23 @@ export class UserAuthService {
     throw new InternalServerErrorException('Unexpected error occurred', {
       cause: err as Error,
     });
+  }
+
+  async register(body: UserRegisterDto) {
+    const oldUsers = await this.userRepository.find({
+      where: { email: body.email },
+    });
+    console.log(oldUsers);
+    if (oldUsers.length > 0) {
+      throw new BadRequestException('User with this email already exist');
+    }
+    if (body.password) body.password = await bcrypt.hash(body.password, 10);
+    const user = this.userRepository.create({
+      name: body.name,
+      email: body.email,
+      password: body.password,
+    });
+    return await this.userRepository.save(user);
   }
 
   async validateUser(email: string, password: string) {
@@ -94,7 +113,7 @@ export class UserAuthService {
     }
   }
 
-  async profile(user: any) {
+  async profile(user: User) {
     try {
       const loginUser = await this.userRepository.findOne({
         where: { id: user.id },
@@ -123,9 +142,34 @@ export class UserAuthService {
     }
   }
 
+  async profileUpdate(user: User, body: UpdateProfileDto) {
+    try {
+      const exist = await this.userRepository.findOne({
+        where: { id: user.id },
+      });
+      if (!exist) {
+        throw new NotFoundException('User Not Found');
+      }
+      if (body.city !== undefined) exist.city = body.city;
+      if (body.address !== undefined) exist.address = body.address;
+      if (body.gender !== undefined) exist.gender = body.gender;
+      if (body.phone !== undefined) exist.phone = body.phone;
+      if (body.image !== undefined) exist.image = body.image;
+
+      const savedUser = await this.userRepository.save(exist);
+
+      return {
+        success: true,
+        message: 'Password updated successfully',
+        data: savedUser,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
   async changePassword(
     body: { oldPassword: string; newPassword: string },
-    user: any,
+    user: User,
   ) {
     try {
       const { oldPassword, newPassword } = body;

@@ -2,13 +2,10 @@ import {
   BeforeInsert,
   Column,
   Entity,
-  JoinColumn,
-  ManyToOne,
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { UserDetails } from './user_details.entity';
-import { Role } from 'src/roles/entity/roles.entity';
 import { Exclude } from 'class-transformer';
 
 @Entity()
@@ -58,10 +55,10 @@ export class User {
   isVarified: number;
 
   @Column({ type: 'date' })
-  created_at: String;
+  created_at: string;
 
   @Column({ type: 'date' })
-  updated_at: String;
+  updated_at: string;
 
   @BeforeInsert()
   setCreateDateParts() {

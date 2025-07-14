@@ -1,6 +1,5 @@
 export class CreateRatingDto {
     userId: number;
-    driverId: number;
     rideId: number;
     remarks: string;
     rating: number;

@@ -133,9 +133,6 @@ export class CalculateFareDto {
 
   @IsNumber()
   ride_timing: number;
-
-  @IsNumber()
-  ride_delay_time: number;
 }
 
 export class RideRoutingInput {

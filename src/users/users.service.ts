@@ -38,7 +38,7 @@ export class UsersService {
         this.userRepository.create(dto),
       );
       const { password, access_token, ...clean } = saved;
-      
+
       return {
         success: true,
         message: 'User has been created',

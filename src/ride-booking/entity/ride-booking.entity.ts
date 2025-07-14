@@ -29,6 +29,9 @@ export class RideBooking {
   @Column({nullable: true})
   driver_id: number;
 
+  @Column({nullable: true})
+  otp_code: string
+
   @ManyToOne(() => User, {nullable: true})
   @JoinColumn({ name: 'driver_id' })
   driver: User;

@@ -1,9 +1,10 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Rating } from './entity/rating.entity';
 import { User } from 'src/users/entity/user.entity';
 import { Repository } from 'typeorm';
 import { CreateRatingDto, UpdateRatingDto } from './dto/Rating.dto';
+import { RideBooking } from 'src/ride-booking/entity/ride-booking.entity';
 
 @Injectable()
 export class RatingService {
@@ -12,31 +13,51 @@ export class RatingService {
         private ratingRepository: Repository<Rating>,
 
         @InjectRepository(User)
-        private userRepository: Repository<User>
+        private userRepository: Repository<User>,
+
+        @InjectRepository(RideBooking)
+        private RideBookingRepository: Repository<RideBooking>,
+
     ) { }
     async create(createRatingDto: CreateRatingDto) {
         try {
-            const { userId, driverId, rideId, remarks, rating } = createRatingDto;
+            const { userId, rideId, remarks, rating } = createRatingDto;
 
             const user = await this.userRepository.findOne({ where: { id: userId } });
             if (!user) {
                 throw new NotFoundException('User not found');
             }
 
+            const Ride = await this.RideBookingRepository.findOne({ where: { id: rideId } });
+            if (!Ride) {
+                throw new NotFoundException('Ride nor found');
+            }
+
+            // Prevent duplicate rating for the same ride
+            const existing = await this.ratingRepository.findOne({
+                where: { user_id: userId, rideId },
+            });
+            if (existing) {
+                throw new BadRequestException('You have already rated this ride');
+            }
+
+
             const newRating = this.ratingRepository.create({
-                driverId,
+
                 rideId,
                 remarks,
                 rating,
                 user,
-                user_id: userId
+                user_id: userId,
+                driverId: Ride.driver_id, // Get driver from ride
             });
-            const saverating = await this.ratingRepository.save(newRating)
+            const saved = await this.ratingRepository.save(newRating)
+
 
             return {
                 success: true,
                 message: 'Rating created successfully',
-                data: saverating,
+                data: saved,
             };
         } catch (error) {
             throw new InternalServerErrorException('Failed to create rating', error.message);
@@ -60,7 +81,7 @@ export class RatingService {
             const rating = await this.ratingRepository.findOne({
                 where: {
                     id,
-                    user_id: userId , // ensures it belongs to the current user
+                    user_id: userId, // ensures it belongs to the current user
                 },
             });
 
@@ -119,22 +140,25 @@ export class RatingService {
     async deleteRating(id: number, userId: number) {
         try {
             const rating = await this.ratingRepository.findOne({
-                where: { id, user: { id: userId }, status: 1 },
+                where: { id, user: { id: userId }},
             });
 
             if (!rating) {
                 throw new NotFoundException(`Rating with ID ${id} not found or already inactive`);
             }
 
-            rating.status = 0;
+            rating.status = rating.status ===  0 ? 1 : 0;
             rating.updated_at = new Date().toISOString().split('T')[0];
 
-            await this.ratingRepository.save(rating);
+            
+
+            const save=await this.ratingRepository.save(rating);
+            const message=rating.status === 0 ? "Marked As InActive" : "'Marked As Active";
 
             return {
                 success: true,
-                message: `Rating with ID ${id} marked inactive`,
-                data: [],
+                message: `Rating with ID ${id} marked ${rating.status === 1 ? 'active' : 'inactive'}`,
+                data: save,
             };
         } catch (error) {
             if (error instanceof NotFoundException) {
@@ -146,3 +170,17 @@ export class RatingService {
         }
     }
 }
+
+// / ✅ Utility: Update driver's average rating
+//   private async updateDriverAverageRating(driverId: number) {
+//     const avg = await this.ratingRepository
+//       .createQueryBuilder('rating')
+//       .select('AVG(rating.rating)', 'avg')
+//       .where('rating.driverId = :driverId', { driverId })
+//       .andWhere('rating.status = 1')
+//       .getRawOne();
+
+//     const averageRating = parseFloat(avg.avg ?? 0);
+
+//     await this.userRepository.update(driverId, { average_rating: averageRating });
+//   }

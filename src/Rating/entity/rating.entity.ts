@@ -1,5 +1,6 @@
 // src/rating/entities/rating.entity.ts
 
+import { RideBooking } from 'src/ride-booking/entity/ride-booking.entity';
 import { User } from 'src/users/entity/user.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BeforeInsert } from 'typeorm';
 
@@ -10,9 +11,15 @@ export class Rating {
 
   @Column()
   driverId: number; // No relation yet
+  @ManyToOne(() => User, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'driverId' })
+  driver: User;
 
   @Column()
   rideId: number; // No relation yet
+  @ManyToOne(() => RideBooking, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'rideId'})
+  ride_booking: RideBooking;
 
   @Column()
   remarks: string;

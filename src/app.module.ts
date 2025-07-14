@@ -25,6 +25,7 @@ import { RideBookingSeederModule } from './ride-booking/seeder/ride-booking-seed
 import { RideBookingSeederService } from './ride-booking/seeder/ride-booking-seeder.service';
 import { RatingModule } from './Rating/rating.module';
 import { ComplaintsCategoryModule } from './complaints-category/complaints-category.module';
+import { RideModule } from './ride-socket/ride.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ComplaintsCategoryModule } from './complaints-category/complaints-categ
     RatingModule,
     ComplaintsCategoryModule,
     RideBookingModule,
+    RideModule,
   ],
   controllers: [AppController],
   providers: [AppService],

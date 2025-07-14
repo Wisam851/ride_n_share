@@ -46,7 +46,7 @@ export class RideBookingService {
   ) {}
 
   async calculateFare(dto: CalculateFareDto) {
-    const { ride_km, ride_timing, ride_delay_time } = dto;
+    const { ride_km, ride_timing } = dto;
 
     const fareStandard = await this.fareRepo.findOne({
       where: { status: 1 },
@@ -61,10 +61,7 @@ export class RideBookingService {
     const fare_id = fareStandard.id;
     const baseFare = Number(fareStandard.price_per_km) * ride_km;
     const surcharge_amount = (fareStandard.sur_charge / 100) * baseFare;
-    const delayPenalty =
-      ride_delay_time > fareStandard.traffic_delay_time
-        ? (fareStandard.traffic_delay_charge / 100) * baseFare
-        : 0;
+
     const app_fees_amount = Number(fareStandard.app_fees);
     const company_fees_amount = (fareStandard.company_fees / 100) * baseFare;
     const driver_fees_amount = (fareStandard.driver_fees / 100) * baseFare;
@@ -74,7 +71,6 @@ export class RideBookingService {
     const fare_amount =
       baseFare +
       surcharge_amount +
-      delayPenalty +
       app_fees_amount +
       company_fees_amount +
       additional_cost -
@@ -87,10 +83,8 @@ export class RideBookingService {
         fare_id,
         ride_km,
         ride_timing,
-        ride_delay_time,
         base_fare: baseFare,
         surcharge_amount,
-        traffic_delay_amount: delayPenalty,
         app_fees_amount,
         company_fees_amount,
         driver_fees_amount,
@@ -123,7 +117,6 @@ export class RideBookingService {
       const expected = await this.calculateFare({
         ride_km: dto.ride_km,
         ride_timing: dto.ride_timing,
-        ride_delay_time: dto.ride_delay_time || 0,
       });
 
       const expectedFare = expected.data;
@@ -138,7 +131,7 @@ export class RideBookingService {
       ) {
         throw new BadRequestException('Fare calculation mismatch');
       }
-
+      const otp_code = Math.floor(10000 + Math.random() * 90000);
       const ride = this.rideBookRepo.create({
         ride_type: dto.type,
         customer_id,
@@ -148,6 +141,7 @@ export class RideBookingService {
         base_fare: dto.base_fare,
         total_fare: dto.total_fare,
         discount: dto.discount,
+        otp_code: otp_code.toString(),
         additional_cost: dto.additional_costs,
         additional_cost_reason: fare_standard.additional_cost_reason,
         surcharge_amount: dto.surcharge_amount,
@@ -299,6 +293,7 @@ export class RideBookingService {
       return {
         success: true,
         message: 'The Driver is Arrived',
+        data: ride,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -339,6 +334,7 @@ export class RideBookingService {
       return {
         success: true,
         message: 'Ride started',
+        data: ride,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -354,7 +350,11 @@ export class RideBookingService {
     await queryRunner.startTransaction();
 
     try {
-      const ride = await this.rideBookRepo.findOne({ where: { id: rideId } });
+      const ride = await this.rideBookRepo.findOne({
+        where: { id: rideId },
+        relations: ['fare_standard'],
+      });
+
       if (!ride) throw new NotFoundException('Ride not found');
 
       if (ride.ride_status !== RideStatus.IN_PROGRESS)
@@ -362,9 +362,56 @@ export class RideBookingService {
 
       if (ride.driver_id !== driverId)
         throw new BadRequestException('Unauthorized ride completion');
+      if (!ride.ride_start_time) throw new Error('Start time missing!');
 
+      const now = new Date();
+      const start = new Date(ride.ride_start_time);
+
+      // Calculate actual ride duration
+      const actualRideMinutes = Math.ceil(
+        (now.getTime() - start.getTime()) / 60000,
+      );
+
+      // Get allowed/estimated ride time
+      const allowedMinutes = ride.ride_timing ?? 0;
+
+      // Calculate delay
+      const delayMinutes = Math.max(0, actualRideMinutes - allowedMinutes);
+
+      // Get fare standard info
+      const fareStandard = ride.fare_standard;
+
+      // Initialize traffic delay amount
+      let trafficDelayAmount = 0;
+
+      // Calculate delay charge if applicable
+      if (delayMinutes > (fareStandard?.traffic_delay_time ?? 0)) {
+        const baseFare = Number(ride.base_fare ?? 0);
+        const delayRate = Number(fareStandard.traffic_delay_charge ?? 0);
+
+        trafficDelayAmount = (delayRate / 100) * baseFare;
+      }
+
+      // Final ride updates
       ride.ride_status = RideStatus.COMPLETED;
-      ride.ride_end_time = new Date();
+      ride.ride_end_time = now;
+      ride.ride_delay_time = delayMinutes;
+      ride.traffic_delay_amount = trafficDelayAmount;
+
+      // Summary
+      console.log('✅ [Ride Completed] Final Ride Object to Save:', {
+        status: ride.ride_status,
+        end_time: ride.ride_end_time,
+        delay_time: ride.ride_delay_time,
+        traffic_delay_amount: ride.traffic_delay_amount,
+      });
+      let total_fare = ride.total_fare;
+      if (trafficDelayAmount > 0) {
+        total_fare = Number(ride.total_fare ?? 0) + trafficDelayAmount;
+        ride.total_fare = total_fare;
+        console.log(`End Total fare ${total_fare}`);
+      }
+
       await queryRunner.manager.save(ride);
 
       await this.createRideLog(
@@ -378,7 +425,14 @@ export class RideBookingService {
       await queryRunner.commitTransaction();
       return {
         success: true,
-        message: 'Ride completed successfully',
+        message: 'Ride completed successfully with updated fare',
+        data: {
+          ride_id: ride.id,
+          total_fare: total_fare,
+          delay_minutes: delayMinutes,
+          traffic_delay_charge: trafficDelayAmount,
+          ride_end_time: ride.ride_end_time,
+        },
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -449,6 +503,7 @@ export class RideBookingService {
       return {
         success: true,
         message: `Ride cancelled by ${role}`,
+        data: ride,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
