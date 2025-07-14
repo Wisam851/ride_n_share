@@ -22,56 +22,90 @@ export class UserAuthSeederService {
     private readonly userRoleRepo: Repository<UserRole>,
   ) {}
 
-  async seed() {
+  async seed(): Promise<void> {
+    // Delete old users by email if they exist
+    await this.deleteUserWithRoles('customer@gmail.com');
+    await this.deleteUserWithRoles('driver@gmail.com');
+    // Re-insert both users
     await this.seedUser({
       name: 'Customer User',
       email: 'customer@gmail.com',
-      password: '$2b$10$2W5M6W6UN3KWa5KJHeUSDeIlR2iosf2.QBVRE2bvodIRNjl5KSFHe',
-      roleId: 3,
+      password: '123456789',
+      roleName: 'customer',
     });
 
     await this.seedUser({
       name: 'Driver User',
       email: 'driver@gmail.com',
-      password: '$2b$10$2W5M6W6UN3KWa5KJHeUSDeIlR2iosf2.QBVRE2bvodIRNjl5KSFHe',
-      roleId: 4,
+      password: '123456789',
+      roleName: 'driver',
     });
+  }
+
+  private async deleteUserWithRoles(email: string): Promise<void> {
+    const user = await this.userRepo.findOne({
+      where: { email },
+      relations: ['userRoles'],
+    });
+
+    if (!user) return;
+
+    if (user.userRoles && user.userRoles.length > 0) {
+      await this.userRoleRepo.remove(user.userRoles);
+    }
+
+    await this.userRepo.remove(user);
+    this.logger.log(`Deleted existing user: ${email}`);
   }
 
   private async seedUser({
     name,
     email,
     password,
-    roleId,
+    roleName,
   }: {
     name: string;
     email: string;
     password: string;
-    roleId: number;
+    roleName: string;
   }) {
-    const existing = await this.userRepo.findOne({ where: { email } });
-
-    if (existing) {
-      this.logger.log(`${email} already exists, skipping...`);
-      return;
-    }
-
-    const role = await this.roleRepo.findOne({ where: { id: roleId } });
-    if (!role) {
-      this.logger.error(`Role ID ${roleId} not found.`);
-      return;
-    }
-
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.userRepo.create({ name, email, password: hashedPassword });
-    const savedUser = await this.userRepo.save(user);
+
+    if (email === 'customer@gmail.com') {
+      this.logger.log('customer is already added');
+      return;
+    }
+    if (email === 'driver@gmail.com') {
+      this.logger.log('Driver is already added');
+      return;
+    }
+    const newUser = this.userRepo.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+    const savedUser = await this.userRepo.save(newUser);
+
+    const role = await this.roleRepo.findOne({
+      where: { name: roleName },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!role) {
+      this.logger.error(`Role '${roleName}' not found in roles table.`);
+      return;
+    }
 
     const userRole = this.userRoleRepo.create({
       user: savedUser,
-      role,
+      role: role,
     });
 
     await this.userRoleRepo.save(userRole);
+
     this.logger.log(`User ${email} created with role ${role.name}`);
   }
 }
