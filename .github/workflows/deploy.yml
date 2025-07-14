@@ -1,0 +1,38 @@
+name: Deploy NestJS App
+
+on:
+  push:
+    branches:
+      - main  # or 'master'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build NestJS App
+        run: npm run build
+
+      # OPTIONAL: Run tests
+      # - name: Run Tests
+      #   run: npm run test
+
+      # --- Deployment Step (adjust as needed) ---
+      - name: Deploy via FTP (Hostinger, cPanel, etc.)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ftp.datainovate.com
+          username: u330229012.ridenshare
+          password: Newpass@2025@
+
