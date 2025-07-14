@@ -26,14 +26,14 @@ export class UserAuthSeederService {
     await this.seedUser({
       name: 'Customer User',
       email: 'customer@gmail.com',
-      password: 'customer123',
+      password: '$2b$10$2W5M6W6UN3KWa5KJHeUSDeIlR2iosf2.QBVRE2bvodIRNjl5KSFHe',
       roleId: 3,
     });
 
     await this.seedUser({
       name: 'Driver User',
       email: 'driver@gmail.com',
-      password: 'driver123',
+      password: '$2b$10$2W5M6W6UN3KWa5KJHeUSDeIlR2iosf2.QBVRE2bvodIRNjl5KSFHe',
       roleId: 4,
     });
   }
