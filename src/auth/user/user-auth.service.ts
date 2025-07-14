@@ -55,6 +55,8 @@ export class UserAuthService {
       name: body.name,
       email: body.email,
       password: body.password,
+      phone: body.phone,
+      gender: body.gender
     });
 
     const savedUser = await this.userRepository.save(user);

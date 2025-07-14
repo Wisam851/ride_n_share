@@ -19,6 +19,12 @@ export class UserRegisterDto {
   email: string;
 
   @IsNotEmpty()
+  phone: string;
+
+  @IsNotEmpty()
+  gender: string;
+
+  @IsNotEmpty()
   password: string;
 
   @IsNotEmpty()
