@@ -23,14 +23,14 @@ export class UserAuthSeederService {
   ) {}
 
   async seed(): Promise<void> {
-    // Delete old users by email if they exist
-    await this.deleteUserWithRoles('customer@gmail.com');
-    await this.deleteUserWithRoles('driver@gmail.com');
+    // // Delete old users by email if they exist
+    // await this.deleteUserWithRoles('customer@gmail.com');
+    // await this.deleteUserWithRoles('driver@gmail.com');
     // Re-insert both users
     await this.seedUser({
       name: 'Customer User',
       email: 'customer@gmail.com',
-      password: '123456789',
+      password: '123456789',   
       roleName: 'customer',
     });
 
