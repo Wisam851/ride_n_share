@@ -38,11 +38,17 @@ export class UserGateway
   }
 
   handleDisconnect(client: Socket) {
+    this.logger.warn(`❌ Disconnected socket: ${client.id}`);
+    const userId = this.socketRegistry.getUserIdFromSocket(client.id);
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+
+    if (userId) this.logger.warn(`❌ User disconnected: ${userId}`);
+    if (driverId) this.logger.warn(`❌ Driver disconnected: ${driverId}`);
+
     this.socketRegistry.removeSocket(client.id);
-    this.logger.log(`❌ User disconnected`);
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.REGISTER)
+  @SubscribeMessage(SOCKET_EVENTS.USER_REGISTER)
   handleRigester(
     @MessageBody() data: { userId: number },
     @ConnectedSocket() client: Socket,
@@ -57,6 +63,7 @@ export class UserGateway
     @MessageBody() data: any,
     @ConnectedSocket() client: Socket,
   ) {
+    this.logger.log('book ride socket run');
     const userId = this.socketRegistry.getUserIdFromSocket(client.id);
     if (!userId) {
       client.emit('BOOK_RIDE_ERROR', {
@@ -65,6 +72,7 @@ export class UserGateway
       });
       return;
     }
+    this.logger.log('useid:', userId);
     const dto = plainToInstance(RideBookingDto, data);
 
     // validation
@@ -96,6 +104,7 @@ export class UserGateway
     const getAllDriverSocketIds = this.socketRegistry.getAllDriversSockets();
     this.logger.log(`📢 Notifying ${getAllDriverSocketIds.length} drivers`);
     for (const socketId of getAllDriverSocketIds) {
+      this.logger.log(`📢 Notifying ${socketId} drivers`);
       this.server.to(socketId).emit('new-ride-request', {
         type: 'booking',
         message: 'A new ride is available for acceptance',

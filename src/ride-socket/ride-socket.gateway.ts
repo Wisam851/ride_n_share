@@ -57,7 +57,7 @@ export class RideGateway
     client.emit('registered', { success: true });
   }
 
-  @SubscribeMessage('accept-ride')
+  /* @SubscribeMessage('accept-ride')
   async handleAcceptRide(
     @MessageBody()
     data: {
@@ -104,5 +104,5 @@ export class RideGateway
         error: error.message || 'Internal error',
       });
     }
-  }
+  } */
 }

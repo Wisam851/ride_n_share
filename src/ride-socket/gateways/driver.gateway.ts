@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Body, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -35,11 +35,17 @@ export class DriverGateway
   }
 
   handleDisconnect(client: Socket) {
+    this.logger.warn(`❌ Disconnected socket: ${client.id}`);
+    const userId = this.socketRegistry.getUserIdFromSocket(client.id);
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+
+    if (userId) this.logger.warn(`❌ User disconnected: ${userId}`);
+    if (driverId) this.logger.warn(`❌ Driver disconnected: ${driverId}`);
+
     this.socketRegistry.removeSocket(client.id);
-    this.logger.log(`❌ Driver disconnected`);
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.REGISTER)
+  @SubscribeMessage(SOCKET_EVENTS.DRIVER_REGISTER)
   handleRegister(
     @MessageBody() data: { driverId: number },
     @ConnectedSocket() client: Socket,
@@ -49,7 +55,7 @@ export class DriverGateway
     client.emit('registered', { success: true });
   }
 
-  @SubscribeMessage('accept-ride')
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_ACCEPTED)
   async handleAcceptRide(
     @MessageBody()
     data: {
@@ -74,13 +80,17 @@ export class DriverGateway
         dto,
       );
       // back to driver
-      client.emit('ride-accepted', final);
+      if (final.success == true) {
+        client.emit('ride-accepted', final);
+      }
 
       // to the user
       const ride = final.data;
       const customerSocketId = this.socketRegistry.getUserSocket(
         ride.customer_id,
       );
+      this.logger.log(`customer id : ${customerSocketId}`);
+
       if (customerSocketId) {
         this.server.to(customerSocketId).emit('ride-status-update', {
           type: 'accepted',
@@ -96,6 +106,105 @@ export class DriverGateway
         success: false,
         message: 'Failed to accept ride',
         error: error.message || 'Internal error',
+      });
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_ARRIVED)
+  async handleRideArrived(
+    @MessageBody() body: { rideId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+    if (!driverId) {
+      return {
+        success: false,
+        message: 'You Are Not Registered',
+        data: [],
+      };
+    }
+
+    try {
+      const ride = await this.rideBookingService.arrivedRide(
+        body.rideId,
+        driverId,
+      );
+      if (ride.success === true && ride.data) {
+        this.logger.log(`🚀 Emitting 'rider-reached' to driver ${driverId}`);
+        client.emit('rider-reached', ride);
+
+        const customer_id = ride.data.customer_id;
+        const customerSocketId = this.socketRegistry.getUserSocket(customer_id);
+
+        if (customerSocketId) {
+          this.server.to(customerSocketId).emit('ride-status-update', {
+            type: 'arrived',
+            rideId: ride.data.id,
+            message: 'Your driver has arrived',
+          });
+        } else {
+          this.logger.warn(`❌ User ${customer_id} not connected`);
+        }
+      } else {
+        client.emit('rider-reached', {
+          success: false,
+          message: 'Ride arrival failed',
+        });
+      }
+    } catch (error) {
+      this.logger.error('❌ Ride Arrived Error:', error.message);
+      client.emit('rider-reached', {
+        success: false,
+        message: 'Internal error during ride arrival',
+        error: error.message || 'Unknown error',
+      });
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
+  async handleRideStarted(
+    @MessageBody() Body: { rideId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+    if (!driverId) {
+      return {
+        success: false,
+        message: 'You Are Not Registered',
+        data: [],
+      };
+    }
+    try {
+      const ride = await this.rideBookingService.verifyAndStartRide(
+        Body.rideId,
+        driverId,
+      );
+
+      if (ride.success === true && ride.data) {
+        client.emit('rider-started-response', ride);
+
+        const customer_id = ride.data.customer_id;
+        const customerSocketId = this.socketRegistry.getUserSocket(customer_id);
+
+        if (customerSocketId) {
+          this.server.to(customerSocketId).emit('ride-status-update', {
+            type: 'started',
+            rideId: ride.data.id,
+            message: 'Your Ride Is Started',
+          });
+        }
+      } else {
+        client.emit('rider-started-response', {
+          success: false,
+          message: 'Ride Stating failed',
+        });
+      }
+    } catch (error) {
+      this.logger.error('❌ Ride Started Error:', error.message);
+      client.emit('rider-started-response', {
+        success: false,
+        message: 'Internal error during ride arrival',
+        error: error.message || 'Unknown error',
       });
     }
   }

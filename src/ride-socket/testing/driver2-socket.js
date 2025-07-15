@@ -5,11 +5,14 @@ const socket = io('http://localhost:3000');
 
 socket.on('connect', () => {
   console.log('🟢 Driver 2 Connected');
-  socket.emit('register', { driverId: DRIVER_ID });
+  socket.emit('driver-register', { driverId: DRIVER_ID });
 });
 
 socket.on('new-ride-request', (data) => {
-  console.log('🚕 Driver 2 received new ride request:', data);
+  console.log(
+    '🚕 Driver 2 received new ride request:',
+    data?.rideData?.success,
+  );
 });
 
 socket.on('ride-accepted', (data) => {

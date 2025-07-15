@@ -1,11 +1,11 @@
 const { io } = require('socket.io-client');
-const USER_ID = 5;
+const Customer_ID = 1;
 
 const socket = io('http://localhost:3000');
 
 socket.on('connect', () => {
-  console.log('👤 User 1 Connected');
-  socket.emit('register', { userId: USER_ID });
+  socket.emit('user-register', { userId: Customer_ID });
+  console.log('👤 Customer 1 Connected');
 
   setTimeout(() => {
     const rideData = {
@@ -23,29 +23,30 @@ socket.on('connect', () => {
       total_fare: 1758,
       routing: [
         {
-          type: 'PICKUP',
+          type: 'pickup',
           latitude: 24.8607,
           longitude: 67.0011,
         },
         {
-          type: 'DROPOFF',
+          type: 'dropoff',
           latitude: 24.8999,
           longitude: 66.99,
         },
       ],
     };
 
-    console.log('📦 User 1 sending BOOK_RIDE...');
+    console.log('📦 Customer 1 sending BOOK_RIDE...');
     socket.emit('book-ride', rideData);
   }, 2000);
 });
 
 socket.on('BOOK_RIDE_SUCCESS', (data) => {
-  console.log('✅ User 1 - Ride booked:', data);
-
-  // After 3 seconds simulate driver1 accepting the ride manually in driver1.js
+  console.log('✅ Customer 1 - Ride booked:', data);
+});
+socket.on('BOOK_RIDE_ERROR', (data) => {
+  console.log('Customer 1 ride Booking error:', data);
 });
 
 socket.on('ride-status-update', (data) => {
-  console.log('📲 User 1 - Ride status update:', data);
+  console.log('📲 Customer 1 - Ride status update:', data);
 });

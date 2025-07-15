@@ -5,7 +5,7 @@ const socket = io('http://localhost:3000');
 
 socket.on('connect', () => {
   console.log('👤 User 2 Connected');
-  socket.emit('register', { userId: USER_ID });
+  socket.emit('user-register', { userId: USER_ID });
 });
 
 socket.on('BOOK_RIDE_SUCCESS', (data) => {

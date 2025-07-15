@@ -34,7 +34,7 @@ export class SocketRegisterService {
   }
 
   getAllDriversSockets(): string[] {
-    return Array.from(this.userSockets.values());
+    return Array.from(this.driverSockets.values());
   }
 
   removeSocket(socketId: string) {
