@@ -32,10 +32,12 @@ export class UserRegisterDto {
   confirm_password: string;
 
   @IsNotEmpty()
-  role: string
+  role: string;
 }
 
 export class UpdateProfileDto {
+  @IsOptional()
+  name: string;
   @IsOptional()
   phone: string;
 

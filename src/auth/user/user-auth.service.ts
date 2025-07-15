@@ -210,6 +210,7 @@ export class UserAuthService {
       if (!exist) {
         throw new NotFoundException('User Not Found');
       }
+      if (body.name !== undefined) exist.name = body.name;
       if (body.city !== undefined) exist.city = body.city;
       if (body.address !== undefined) exist.address = body.address;
       if (body.gender !== undefined) exist.gender = body.gender;

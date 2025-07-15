@@ -13,7 +13,7 @@ import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
     TypeOrmModule.forFeature([User, Role, UserRole]), // ✅ THIS LINE IS REQUIRED
     JwtModule.register({
       secret: 'user-secret-key',
-      signOptions: { expiresIn: '1h' },
+      signOptions: { expiresIn: '7d' },
     }),
   ],
   controllers: [UserAuthController],
