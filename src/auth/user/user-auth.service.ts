@@ -13,6 +13,7 @@ import { Role } from 'src/roles/entity/roles.entity';
 import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
 import { UpdateProfileDto, UserRegisterDto } from './dtos/user-auth.dto';
 import { cleanObject } from 'src/common/utils/sanitize.util';
+import { response } from 'express';
 
 @Injectable()
 export class UserAuthService {
@@ -56,7 +57,7 @@ export class UserAuthService {
       email: body.email,
       password: body.password,
       phone: body.phone,
-      gender: body.gender
+      gender: body.gender,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -276,6 +277,26 @@ export class UserAuthService {
         success: true,
         message: 'Password updated successfully',
         data: {},
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
+  async modeChnage(user: User) {
+    try {
+      const currentUser = await this.userRepository.findOne({
+        where: { id: user.id },
+      });
+      if (!currentUser) throw new NotFoundException('Driver not Found');
+
+      currentUser.isOnline = currentUser.isOnline === 1 ? 0 : 1;
+      const saved = await this.userRepository.save(currentUser);
+      const is = currentUser.isOnline === 1 ? 'Online' : 'Ofline';
+      return {
+        success: true,
+        message: `Driver is ${is} now`,
+        data: saved,
       };
     } catch (err) {
       this.handleUnknown(err);

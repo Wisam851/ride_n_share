@@ -16,6 +16,8 @@ import { User } from 'src/users/entity/user.entity';
 import { UpdateProfileDto, UserRegisterDto } from './dtos/user-auth.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/common/utils/multer.config';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 
 @Controller('user')
 export class UserAuthController {
@@ -61,6 +63,13 @@ export class UserAuthController {
     @CurrentUser() user: User,
   ) {
     return await this.userAuthService.changePassword(body, user);
+  }
+
+  @Get('mode')
+  @UseGuards(UserJwtAuthGuard, RolesGuard)
+  @Roles('driver')
+  async changeMode(@CurrentUser() user: User) {
+    return this.userAuthService.modeChnage(user);
   }
 
   @Post('logout')

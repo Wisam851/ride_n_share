@@ -37,10 +37,10 @@ export class User {
   @Column({ nullable: true })
   city: string;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   street: string;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   district: string;
 
   @Column({ nullable: true })
@@ -61,6 +61,14 @@ export class User {
     comment: '0 = not verified, 1 = verified',
   })
   isVarified: number;
+
+  @Column({
+    type: 'smallint',
+    default: 1,
+    nullable: false,
+    comment: '1 for online and 0 for offline',
+  })
+  isOnline: number;
 
   @Column({ type: 'date' })
   created_at: string;
