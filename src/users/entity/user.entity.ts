@@ -37,6 +37,12 @@ export class User {
   @Column({ nullable: true })
   city: string;
 
+  @Column({nullable: true})
+  street: string;
+
+  @Column({nullable: true})
+  district: string;
+
   @Column({ nullable: true })
   image: string;
 

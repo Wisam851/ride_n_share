@@ -38,11 +38,18 @@ export class UserRegisterDto {
 export class UpdateProfileDto {
   @IsOptional()
   name: string;
+
   @IsOptional()
   phone: string;
 
   @IsOptional()
   address: string;
+
+  @IsOptional()
+  street: string;
+
+  @IsOptional()
+  district: string;
 
   @IsOptional()
   gender: string;

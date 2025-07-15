@@ -212,6 +212,8 @@ export class UserAuthService {
       }
       if (body.name !== undefined) exist.name = body.name;
       if (body.city !== undefined) exist.city = body.city;
+      if (body.street !== undefined) exist.street = body.street;
+      if (body.district !== undefined) exist.district = body.district;
       if (body.address !== undefined) exist.address = body.address;
       if (body.gender !== undefined) exist.gender = body.gender;
       if (body.phone !== undefined) exist.phone = body.phone;
