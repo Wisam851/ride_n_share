@@ -148,7 +148,7 @@ export class UserAuthService {
         roles: roleNames,
       };
 
-      const token = this.jwtService.sign(payload);
+      const token = this.jwtService.sign(payload, { expiresIn: '7d' });
       user.access_token = token;
 
       await this.userRepository.save(user);
