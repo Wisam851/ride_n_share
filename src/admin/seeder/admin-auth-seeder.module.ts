@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Admin } from 'src/admin-auth/entity/admin.entity';
 import { AdminAuthSeederService } from './admin-auth-seeder.service';
+import { Admin } from '../entity/admin.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Admin])],
