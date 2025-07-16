@@ -28,6 +28,8 @@ import { ComplaintsCategoryModule } from './complaints-category/complaints-categ
 import { RideModule } from './ride-socket/ride.module';
 import { UserAuthSeederModule } from './auth/user/seeder/user-auth-seeder.module';
 import { UserAuthSeederService } from './auth/user/seeder/user-auth-seeder.service';
+import { AdminAuthSeederModule } from './admin/seeder/admin-auth-seeder.module';
+import { AdminAuthSeederService } from './admin/seeder/admin-auth-seeder.service';
 
 @Module({
   imports: [
@@ -70,6 +72,7 @@ import { UserAuthSeederService } from './auth/user/seeder/user-auth-seeder.servi
     RideBookingModule,
     RideModule,
     UserAuthSeederModule,
+    AdminAuthSeederModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -79,11 +82,13 @@ export class AppModule implements OnApplicationBootstrap {
     private readonly rolesSeederService: RolesSeederService,
     private readonly rideBookingSeederService: RideBookingSeederService,
     private readonly userAuthSeederService: UserAuthSeederService, // ✅ Inject it here
+    private readonly adminAuthSeederService: AdminAuthSeederService,
   ) {}
 
   async onApplicationBootstrap() {
     await this.rolesSeederService.seed();
     await this.rideBookingSeederService.seed();
     await this.userAuthSeederService.seed(); // ✅ Run user seeder
+    await this.adminAuthSeederService.seed();
   }
 }

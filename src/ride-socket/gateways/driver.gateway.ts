@@ -163,7 +163,7 @@ export class DriverGateway
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
   async handleRideStarted(
-    @MessageBody() Body: { rideId: number },
+    @MessageBody() body: { rideId: number },
     @ConnectedSocket() client: Socket,
   ) {
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
@@ -176,7 +176,7 @@ export class DriverGateway
     }
     try {
       const ride = await this.rideBookingService.verifyAndStartRide(
-        Body.rideId,
+        body.rideId,
         driverId,
       );
 

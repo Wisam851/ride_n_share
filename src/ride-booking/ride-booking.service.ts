@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -44,6 +45,7 @@ export class RideBookingService {
 
     private readonly dataSource: DataSource,
   ) {}
+  private logger = new Logger('DriverGateway');
 
   async calculateFare(dto: CalculateFareDto) {
     const { ride_km, ride_timing } = dto;
@@ -311,6 +313,8 @@ export class RideBookingService {
     try {
       const ride = await this.rideBookRepo.findOne({ where: { id: rideId } });
       if (!ride) throw new NotFoundException('Ride not found');
+
+      this.logger.debug(`Ride Status in DB: ${ride.ride_status}`);
 
       if (ride.ride_status !== RideStatus.ARRIVED)
         throw new BadRequestException('Ride is not in ARRIVED state');

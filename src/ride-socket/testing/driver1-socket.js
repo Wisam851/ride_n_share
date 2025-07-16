@@ -23,7 +23,7 @@ socket.on('new-ride-request', (data) => {
         lng: 67.0011,
         address: 'Main Shahrah-e-Faisal, Karachi, Pakistan',
       });
-    }, 10000);
+    }, 2000);
   } else {
     console.log('ride not found');
   }
@@ -42,7 +42,7 @@ socket.on('ride-accepted', (data) => {
       socket.emit('ride-arrived', {
         rideId: rideId,
       });
-    }, 5000);
+    }, 2000);
   }
 });
 
