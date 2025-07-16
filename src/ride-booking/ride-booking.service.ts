@@ -246,11 +246,17 @@ export class RideBookingService {
       );
 
       await queryRunner.commitTransaction();
-
+      const updatedRide = await this.rideBookRepo.findOne({
+        where: { id: ride.id },
+      });
+      this.logger.debug(
+        'Ride Status from DB is THis:',
+        updatedRide?.ride_status,
+      );
       return {
         success: true,
         message: 'Ride accepted successfully',
-        data: ride,
+        data: updatedRide,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -291,11 +297,17 @@ export class RideBookingService {
       );
 
       await queryRunner.commitTransaction();
-
+      const updatedRide = await this.rideBookRepo.findOne({
+        where: { id: ride.id },
+      });
+      this.logger.debug(
+        'Ride Status from DB is THis:',
+        updatedRide?.ride_status,
+      );
       return {
         success: true,
         message: 'The Driver is Arrived',
-        data: ride,
+        data: updatedRide,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -311,6 +323,7 @@ export class RideBookingService {
     await queryRunner.startTransaction();
 
     try {
+      await new Promise((res) => setTimeout(res, 300)); // wait 300ms
       const ride = await this.rideBookRepo.findOne({ where: { id: rideId } });
       if (!ride) throw new NotFoundException('Ride not found');
 
@@ -335,10 +348,17 @@ export class RideBookingService {
       );
 
       await queryRunner.commitTransaction();
+      const updatedRide = await this.rideBookRepo.findOne({
+        where: { id: ride.id },
+      });
+      this.logger.debug(
+        'Ride Status from DB is THis:',
+        updatedRide?.ride_status,
+      );
       return {
         success: true,
         message: 'Ride started',
-        data: ride,
+        data: updatedRide,
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -432,6 +452,7 @@ export class RideBookingService {
         message: 'Ride completed successfully with updated fare',
         data: {
           ride_id: ride.id,
+          customer_id: ride.customer_id,
           total_fare: total_fare,
           delay_minutes: delayMinutes,
           traffic_delay_charge: trafficDelayAmount,

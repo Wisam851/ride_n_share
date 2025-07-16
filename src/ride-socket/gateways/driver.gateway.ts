@@ -86,6 +86,7 @@ export class DriverGateway
 
       // to the user
       const ride = final.data;
+      if (!ride) return;
       const customerSocketId = this.socketRegistry.getUserSocket(
         ride.customer_id,
       );
@@ -138,6 +139,7 @@ export class DriverGateway
 
         if (customerSocketId) {
           this.server.to(customerSocketId).emit('ride-status-update', {
+            success: true,
             type: 'arrived',
             rideId: ride.data.id,
             message: 'Your driver has arrived',
@@ -188,6 +190,7 @@ export class DriverGateway
 
         if (customerSocketId) {
           this.server.to(customerSocketId).emit('ride-status-update', {
+            success: true,
             type: 'started',
             rideId: ride.data.id,
             message: 'Your Ride Is Started',
@@ -205,6 +208,57 @@ export class DriverGateway
         success: false,
         message: 'Internal error during ride arrival',
         error: error.message || 'Unknown error',
+      });
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_COMPLETED)
+  async handleRideCompleted(
+    @MessageBody() body: { rideId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+    if (!driverId) {
+      client.emit('ride-completed-response', {
+        success: false,
+        message: 'Driver not found',
+      });
+      return;
+    }
+    try {
+      const ride = await this.rideBookingService.completeRide(
+        body.rideId,
+        driverId,
+      );
+
+      if (ride.success == true && ride.data) {
+        client.emit('ride-completed-response', ride);
+
+        const customerSocketId = this.socketRegistry.getUserSocket(
+          ride.data.customer_id,
+        );
+        if (customerSocketId) {
+          this.server.to(customerSocketId).emit('ride-status-update', {
+            success: true,
+            type: 'completed',
+            ride_id: ride.data.ride_id,
+            message: 'Your ride is completed',
+          });
+        } else {
+          client.emit('ride-completed-response', {
+            success: false,
+            message: 'customer is not conected',
+            data: [],
+          });
+        }
+      } else {
+      }
+    } catch (error) {
+      this.logger.error('Somthing went wrong', error.message || 'Undefine');
+      client.emit('ride-completed-response', {
+        success: false,
+        message: 'Driver not found',
+        error: error.message || 'Undefine',
       });
     }
   }

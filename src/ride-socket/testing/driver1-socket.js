@@ -15,15 +15,13 @@ socket.on('new-ride-request', (data) => {
   );
   const rideId = data?.rideData?.data?.id;
   if (rideId) {
-    setTimeout(() => {
-      socket.emit('ride-accepted', {
-        rideId: rideId,
-        driverId: DRIVER_ID,
-        lat: 24.8607,
-        lng: 67.0011,
-        address: 'Main Shahrah-e-Faisal, Karachi, Pakistan',
-      });
-    }, 2000);
+    socket.emit('ride-accepted', {
+      rideId: rideId,
+      driverId: DRIVER_ID,
+      lat: 24.8607,
+      lng: 67.0011,
+      address: 'Main Shahrah-e-Faisal, Karachi, Pakistan',
+    });
   } else {
     console.log('ride not found');
   }
@@ -38,11 +36,7 @@ socket.on('ride-accepted', (data) => {
 
   rideId = data?.data?.id;
   if (rideId) {
-    setTimeout(() => {
-      socket.emit('ride-arrived', {
-        rideId: rideId,
-      });
-    }, 2000);
+    socket.emit('ride-arrived', { rideId: rideId });
   }
 });
 
@@ -50,26 +44,31 @@ socket.on('rider-reached', (data) => {
   console.log("✅ Driver 1 - You have arrived at the user's location.");
   console.log('📦 Ride Arrival Response:', data);
 
-  if (data.success) {
-    console.log(`Ride ID: ${data.data?.id}`);
-    console.log(`Message: ${data.message}`);
-    rideId = data?.data?.id;
-    if (rideId) {
-      console.log(`Ride id ${rideId}`);
-      setTimeout(() => {
-        console.log(`ride started time`);
-        socket.emit(
-          'ride-started',
-          {
-            rideId: rideId,
-          },
-          2000,
-        );
-      });
-    }
+  console.log(`Ride ID: ${data.data?.id}`);
+  console.log(`Message: ${data.message}`);
+  rideId = data?.data?.id;
+  if (rideId) {
+    console.log(`Ride id ${rideId}`);
+    console.log(`ride started time`);
+    setTimeout(() => {
+      socket.emit('ride-started', { rideId: rideId });
+    });
   }
 });
 socket.on('rider-started-response', (data) => {
-  console.log("driver 1 ride is started");
-  console.log('Ride start response:', data);
+  console.log('driver 1 ride is started');
+  console.log('Ride start response:', data?.data?.id);
+
+  rideId = data?.data?.id;
+  if (rideId) {
+    console.log('Ride Complete Ride Id:', rideId);
+    setTimeout(() => {
+      socket.emit('ride-completed', { rideId: rideId });
+    });
+  }
+});
+
+socket.on('ride-completed-response', (data) => {
+  console.log('Your Ride Is completed');
+  console.log(data);
 });
