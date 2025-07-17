@@ -1,11 +1,19 @@
 const { io } = require('socket.io-client');
 const DRIVER_ID = 7;
-let rideId = 0;
-const socket = io('http://localhost:3000');
+const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjcsImVtYWlsIjoid2lzYW1tYW56b29yQGdtYWlsLmNvbSIsInJvbGVzIjpbImRyaXZlciJdLCJpYXQiOjE3NTI3NTU2MDgsImV4cCI6MTc1MzM2MDQwOH0.BBenKlv04F_hUN7-ZdqJ4Z2iiuz-sOKk8ZfGoa6NlhQ'; // Replace with real token from login API
+
+const socket = io('http://localhost:3000/driver', {
+  auth: {
+    token: token,
+  },
+});
 
 socket.on('connect', () => {
-  socket.emit('driver-register', { driverId: DRIVER_ID });
-  console.log('🟢 Driver 1 Connected');
+  console.log('🟢 Driver Connected with JWT');
+});
+
+socket.on('disconnect', () => {
+  console.log('❌ Driver Disconnected');
 });
 
 socket.on('new-ride-request', (data) => {

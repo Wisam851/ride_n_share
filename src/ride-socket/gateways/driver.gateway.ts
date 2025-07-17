@@ -9,7 +9,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Namespace, Socket } from 'socket.io';
 import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { SocketRegisterService } from '../socket-registry.service';
@@ -17,11 +17,11 @@ import { authenticateSocket } from '../utils/socket-auth.util';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
 
-@WebSocketGateway({ cros: { origin: '*' } })
+@WebSocketGateway({ namespace: 'driver', cros: { origin: '*' } })
 export class DriverGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() server: Namespace;
   private logger = new Logger('DriverGateway');
 
   constructor(
@@ -35,38 +35,33 @@ export class DriverGateway
 
   async handleConnection(client: Socket) {
     try {
-      const user = await authenticateSocket(client);
-      if (!user.roles.includes('driver')) {
-        this.logger.warn('Unautharized: Not a driver');
+      const user = authenticateSocket(client);
+      if (!user.roles?.includes('driver')) {
+        this.logger.warn(
+          `Unauthorized WS connect: userId=${user.sub} lacks 'driver' role`,
+        );
         client.disconnect();
         return;
       }
-      this.logger.log(`🚕 Driver Connected: ${client.id}`);
-      this.socketRegistry.setDriverSocket(user.sub, client.id);
-    } catch (err) {
-      this.logger.error(err.message);
+      this.logger.log(`🚕 Driver Connected: ${client.id} (userId=${user.sub})`);
+      this.socketRegistry.setDriverSocket(user.sub, client.id, '/driver');
+    } catch (err: any) {
+      this.logger.error(`Auth error: ${err.message}`);
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.warn(`❌ Disconnected socket: ${client.id}`);
-    const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
-
-    if (customerId) this.logger.warn(`❌ Customer disconnected: ${customerId}`);
     if (driverId) this.logger.warn(`❌ Driver disconnected: ${driverId}`);
-
     this.socketRegistry.removeSocket(client.id);
   }
 
   @SubscribeMessage(SOCKET_EVENTS.DRIVER_REGISTER)
   @UseGuards(WsRolesGuard)
   @WsRoles('driver')
-  handleRegister(
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(`🔗 Driver Registered:`);
+  handleRegister(@ConnectedSocket() client: Socket) {
+    this.logger.log(`🔗 Driver Register event (noop) socket=${client.id}`);
     client.emit('registered', { success: true });
   }
 
@@ -82,6 +77,14 @@ export class DriverGateway
     },
     @ConnectedSocket() client: Socket,
   ) {
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+    if (!driverId) {
+      client.emit('RIDE_ACCEPT_ERROR', {
+        success: false,
+        message: 'Driver not registered',
+      });
+      return;
+    }
     this.logger.log(`🚗 Accept Ride Data: ${JSON.stringify(data)}`);
     const dto = {
       latitude: data.lat,
@@ -108,7 +111,8 @@ export class DriverGateway
       this.logger.log(`customer id : ${customerSocketId}`);
 
       if (customerSocketId) {
-        this.server.to(customerSocketId).emit('ride-status-update', {
+        const customerNs = this.server.server.of('/customer');
+        customerNs.to(customerSocketId.socketId).emit('ride-status-update', {
           type: 'accepted',
           rideId: ride.id,
           message: 'Your ride has been accepted',
@@ -153,16 +157,16 @@ export class DriverGateway
         const customerSocketId =
           this.socketRegistry.getCustomerSocket(customer_id);
 
-        if (customerSocketId) {
-          this.server.to(customerSocketId).emit('ride-status-update', {
-            success: true,
-            type: 'arrived',
-            rideId: ride.data.id,
-            message: 'Your driver has arrived',
-          });
-        } else {
-          this.logger.warn(`❌ Customer ${customer_id} not connected`);
-        }
+        // if (customerSocketId) {
+        //   this.server.to(customerSocketId).emit('ride-status-update', {
+        //     success: true,
+        //     type: 'arrived',
+        //     rideId: ride.data.id,
+        //     message: 'Your driver has arrived',
+        //   });
+        // } else {
+        //   this.logger.warn(`❌ Customer ${customer_id} not connected`);
+        // }
       } else {
         client.emit('rider-reached', {
           success: false,
@@ -205,14 +209,14 @@ export class DriverGateway
         const customerSocketId =
           this.socketRegistry.getCustomerSocket(customer_id);
 
-        if (customerSocketId) {
-          this.server.to(customerSocketId).emit('ride-status-update', {
-            success: true,
-            type: 'started',
-            rideId: ride.data.id,
-            message: 'Your Ride Is Started',
-          });
-        }
+        // if (customerSocketId) {
+        //   this.server.to(customerSocketId).emit('ride-status-update', {
+        //     success: true,
+        //     type: 'started',
+        //     rideId: ride.data.id,
+        //     message: 'Your Ride Is Started',
+        //   });
+        // }
       } else {
         client.emit('rider-started-response', {
           success: false,
@@ -254,20 +258,20 @@ export class DriverGateway
         const customerSocketId = this.socketRegistry.getCustomerSocket(
           ride.data.customer_id,
         );
-        if (customerSocketId) {
-          this.server.to(customerSocketId).emit('ride-status-update', {
-            success: true,
-            type: 'completed',
-            ride_id: ride.data.ride_id,
-            message: 'Your ride is completed',
-          });
-        } else {
-          client.emit('ride-completed-response', {
-            success: false,
-            message: 'customer is not conected',
-            data: [],
-          });
-        }
+        // if (customerSocketId) {
+        //   this.server.to(customerSocketId).emit('ride-status-update', {
+        //     success: true,
+        //     type: 'completed',
+        //     ride_id: ride.data.ride_id,
+        //     message: 'Your ride is completed',
+        //   });
+        // } else {
+        //   client.emit('ride-completed-response', {
+        //     success: false,
+        //     message: 'customer is not conected',
+        //     data: [],
+        //   });
+        // }
       } else {
       }
     } catch (error) {

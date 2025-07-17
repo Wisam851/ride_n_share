@@ -1,11 +1,15 @@
 const { io } = require('socket.io-client');
-const Customer_ID = 1;
 
-const socket = io('http://localhost:3000');
+const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoid2lzYW1AZ21haWwuY29tIiwicm9sZXMiOlsiY3VzdG9tZXIiXSwiaWF0IjoxNzUyNzU1NjQwLCJleHAiOjE3NTMzNjA0NDB9.1zFWBp4pY5lS44-bt3zXZzC_na8fyjlVzWPL-iyUB6c'; // Replace with real token from login API
+
+const socket = io('http://localhost:3000/customer', {
+  auth: {
+    token: token, 
+  },
+});
 
 socket.on('connect', () => {
-  socket.emit('user-register', { userId: Customer_ID });
-  console.log('👤 Customer 1 Connected');
+  console.log('👤 Customer Connected with JWT');
 
   setTimeout(() => {
     const rideData = {
@@ -22,22 +26,18 @@ socket.on('connect', () => {
       discount: 0,
       total_fare: 1758,
       routing: [
-        {
-          type: 'pickup',
-          latitude: 24.8607,
-          longitude: 67.0011,
-        },
-        {
-          type: 'dropoff',
-          latitude: 24.8999,
-          longitude: 66.99,
-        },
+        { type: 'pickup', latitude: 24.8607, longitude: 67.0011 },
+        { type: 'dropoff', latitude: 24.8999, longitude: 66.99 },
       ],
     };
 
-    console.log('📦 Customer 1 sending BOOK_RIDE...');
+    console.log('📦 Customer sending BOOK_RIDE...');
     socket.emit('book-ride', rideData);
   }, 2000);
+});
+
+socket.on('disconnect', () => {
+  console.log('❌ Customer Disconnected');
 });
 
 socket.on('BOOK_RIDE_SUCCESS', (data) => {

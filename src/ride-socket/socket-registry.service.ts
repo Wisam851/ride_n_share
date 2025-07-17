@@ -1,17 +1,24 @@
-export class SocketRegisterService {
-  private customerSockets = new Map<number, string>();
-  private driverSockets = new Map<number, string>();
+import { Injectable } from '@nestjs/common';
 
-  private socketToCustomer = new Map<string, number>();
+interface SocketRef {
+  socketId: string;
+  namespace: string; // '/customer' | '/driver' | others
+}
+
+@Injectable()
+export class SocketRegisterService {
+  private customerSockets = new Map<number, SocketRef>();
+  private driverSockets = new Map<number, SocketRef>();
+  private socketToCustomer = new Map<string, number>(); // socketId -> userId
   private socketToDriver = new Map<string, number>();
 
-  // user methods
-  setCustomerSocket(customerId: number, socketId: string) {
-    this.customerSockets.set(customerId, socketId);
+  // --- Customer ---
+  setCustomerSocket(customerId: number, socketId: string, namespace: string) {
+    this.customerSockets.set(customerId, { socketId, namespace });
     this.socketToCustomer.set(socketId, customerId);
   }
 
-  getCustomerSocket(customerId: number): string | undefined {
+  getCustomerSocket(customerId: number): SocketRef | undefined {
     return this.customerSockets.get(customerId);
   }
 
@@ -19,13 +26,13 @@ export class SocketRegisterService {
     return this.socketToCustomer.get(socketId);
   }
 
-  // driver methods
-  setDriverSocket(driverId: number, socketId: string) {
-    this.driverSockets.set(driverId, socketId);
+  // --- Driver ---
+  setDriverSocket(driverId: number, socketId: string, namespace: string) {
+    this.driverSockets.set(driverId, { socketId, namespace });
     this.socketToDriver.set(socketId, driverId);
   }
 
-  getDriverSocket(driverId: number): string | undefined {
+  getDriverSocket(driverId: number): SocketRef | undefined {
     return this.driverSockets.get(driverId);
   }
 
@@ -33,21 +40,23 @@ export class SocketRegisterService {
     return this.socketToDriver.get(socketId);
   }
 
-  getAllDriversSockets(): string[] {
+  // for broadcast
+  getAllDriversSockets(): SocketRef[] {
     return Array.from(this.driverSockets.values());
   }
 
+  // cleanup
   removeSocket(socketId: string) {
-    if (this.socketToCustomer.has(socketId)) {
-      const customerId = this.socketToCustomer.get(socketId);
+    const customerId = this.socketToCustomer.get(socketId);
+    if (customerId !== undefined) {
       this.socketToCustomer.delete(socketId);
-      if (customerId) this.customerSockets.delete(customerId);
+      this.customerSockets.delete(customerId);
     }
 
-    if (this.socketToDriver.has(socketId)) {
-      const driverId = this.socketToDriver.get(socketId);
+    const driverId = this.socketToDriver.get(socketId);
+    if (driverId !== undefined) {
       this.socketToDriver.delete(socketId);
-      if (driverId) this.driverSockets.delete(driverId);
+      this.driverSockets.delete(driverId);
     }
   }
 }
