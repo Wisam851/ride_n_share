@@ -14,7 +14,6 @@ export class UserJwtStrategy extends PassportStrategy(Strategy, 'user-jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: 'user-secret-key',
-      ignoreExpiration: true,
       passReqToCallback: true,
     });
   }
@@ -31,8 +30,8 @@ export class UserJwtStrategy extends PassportStrategy(Strategy, 'user-jwt') {
     if (!user || !user.access_token)
       throw new UnauthorizedException('Invalid or expired token');
 
-    // if (token !== user.access_token)
-    //   throw new UnauthorizedException('Token revoked or expired');
+    if (token !== user.access_token)
+      throw new UnauthorizedException('Token revoked or expired');
 
     // Add roles to returned user object
     return {

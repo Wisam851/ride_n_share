@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -16,13 +16,16 @@ import { plainToInstance } from 'class-transformer';
 import { RideBookingDto } from 'src/ride-booking/dtos/create-ride-booking.dto';
 import { validate, Validate } from 'class-validator';
 import { SocketRegisterService } from '../socket-registry.service';
+import { authenticateSocket } from '../utils/socket-auth.util';
+import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
+import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
 
 @WebSocketGateway({ cors: { origin: '*' } })
-export class UserGateway
+export class CustomerGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Server;
-  private logger = new Logger('UserGateway');
+  private logger = new Logger('CustomerGateway');
 
   constructor(
     private socketRegistry: SocketRegisterService,
@@ -30,31 +33,43 @@ export class UserGateway
   ) {}
 
   afterInit() {
-    this.logger.log('✅ User WebSocket Initialized');
+    this.logger.log('✅ Customer WebSocket Initialized');
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`🧑‍💻 User Connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    try {
+      const user = await authenticateSocket(client);
+      if (!user) {
+        this.logger.warn('Unautharized: Not a customer');
+        client.disconnect();
+        return;
+      }
+      this.logger.log(`🧑‍💻 Customer Connected: ${client.id}`);
+      this.socketRegistry.setCustomerSocket(user.sub, client.id);
+    } catch (err) {
+      this.logger.error(err.message);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
     this.logger.warn(`❌ Disconnected socket: ${client.id}`);
-    const userId = this.socketRegistry.getUserIdFromSocket(client.id);
+    const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
 
-    if (userId) this.logger.warn(`❌ User disconnected: ${userId}`);
+    if (customerId) this.logger.warn(`❌ Customer disconnected: ${customerId}`);
     if (driverId) this.logger.warn(`❌ Driver disconnected: ${driverId}`);
 
     this.socketRegistry.removeSocket(client.id);
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.USER_REGISTER)
+  @SubscribeMessage(SOCKET_EVENTS.Customer_REGISTER)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('customer')
   handleRigester(
-    @MessageBody() data: { userId: number },
     @ConnectedSocket() client: Socket,
   ) {
-    this.socketRegistry.setUserSocket(data.userId, client.id);
-    this.logger.log(`🔗 User Registered: ${data.userId}`);
+    this.logger.log(`🔗 Customer Registered:`);
     client.emit('registered', { success: true });
   }
 
@@ -64,15 +79,15 @@ export class UserGateway
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log('book ride socket run');
-    const userId = this.socketRegistry.getUserIdFromSocket(client.id);
-    if (!userId) {
+    const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
+    if (!customerId) {
       client.emit('BOOK_RIDE_ERROR', {
         success: false,
-        message: 'User not registered or session expired',
+        message: 'Customer not registered or session expired',
       });
       return;
     }
-    this.logger.log('useid:', userId);
+    this.logger.log('useid:', customerId);
     const dto = plainToInstance(RideBookingDto, data);
 
     // validation
@@ -91,9 +106,9 @@ export class UserGateway
 
     // ✅ Proceed
     this.logger.log('📦 Booking DTO:', dto);
-    this.logger.log('🙋‍♂️ User ID:', userId);
+    this.logger.log('🙋‍♂️ Customer ID:', customerId);
 
-    const result = await this.rideBookingService.create(dto, userId);
+    const result = await this.rideBookingService.create(dto, customerId);
     this.logger.log(result);
     client.emit('BOOK_RIDE_SUCCESS', {
       success: true,

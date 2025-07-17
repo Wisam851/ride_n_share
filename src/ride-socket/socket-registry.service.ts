@@ -1,22 +1,22 @@
 export class SocketRegisterService {
-  private userSockets = new Map<number, string>();
+  private customerSockets = new Map<number, string>();
   private driverSockets = new Map<number, string>();
 
-  private socketToUser = new Map<string, number>();
+  private socketToCustomer = new Map<string, number>();
   private socketToDriver = new Map<string, number>();
 
   // user methods
-  setUserSocket(userId: number, socketId: string) {
-    this.userSockets.set(userId, socketId);
-    this.socketToUser.set(socketId, userId);
+  setCustomerSocket(customerId: number, socketId: string) {
+    this.customerSockets.set(customerId, socketId);
+    this.socketToCustomer.set(socketId, customerId);
   }
 
-  getUserSocket(userId: number): string | undefined {
-    return this.userSockets.get(userId);
+  getCustomerSocket(customerId: number): string | undefined {
+    return this.customerSockets.get(customerId);
   }
 
-  getUserIdFromSocket(socketId: string): number | undefined {
-    return this.socketToUser.get(socketId);
+  getCustomerIdFromSocket(socketId: string): number | undefined {
+    return this.socketToCustomer.get(socketId);
   }
 
   // driver methods
@@ -38,10 +38,10 @@ export class SocketRegisterService {
   }
 
   removeSocket(socketId: string) {
-    if (this.socketToUser.has(socketId)) {
-      const userId = this.socketToUser.get(socketId);
-      this.socketToUser.delete(socketId);
-      if (userId) this.userSockets.delete(userId);
+    if (this.socketToCustomer.has(socketId)) {
+      const customerId = this.socketToCustomer.get(socketId);
+      this.socketToCustomer.delete(socketId);
+      if (customerId) this.customerSockets.delete(customerId);
     }
 
     if (this.socketToDriver.has(socketId)) {

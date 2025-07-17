@@ -1,4 +1,4 @@
-import { Body, Logger } from '@nestjs/common';
+import { Body, Logger, UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,6 +13,9 @@ import { Server, Socket } from 'socket.io';
 import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { SocketRegisterService } from '../socket-registry.service';
+import { authenticateSocket } from '../utils/socket-auth.util';
+import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
+import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
 
 @WebSocketGateway({ cros: { origin: '*' } })
 export class DriverGateway
@@ -30,28 +33,40 @@ export class DriverGateway
     this.logger.log('✅ Driver WebSocket Initialized');
   }
 
-  handleConnection(client: Socket) {
-    this.logger.log(`🚕 Driver Connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    try {
+      const user = await authenticateSocket(client);
+      if (!user.roles.includes('driver')) {
+        this.logger.warn('Unautharized: Not a driver');
+        client.disconnect();
+        return;
+      }
+      this.logger.log(`🚕 Driver Connected: ${client.id}`);
+      this.socketRegistry.setDriverSocket(user.sub, client.id);
+    } catch (err) {
+      this.logger.error(err.message);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
     this.logger.warn(`❌ Disconnected socket: ${client.id}`);
-    const userId = this.socketRegistry.getUserIdFromSocket(client.id);
+    const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
 
-    if (userId) this.logger.warn(`❌ User disconnected: ${userId}`);
+    if (customerId) this.logger.warn(`❌ Customer disconnected: ${customerId}`);
     if (driverId) this.logger.warn(`❌ Driver disconnected: ${driverId}`);
 
     this.socketRegistry.removeSocket(client.id);
   }
 
   @SubscribeMessage(SOCKET_EVENTS.DRIVER_REGISTER)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('driver')
   handleRegister(
-    @MessageBody() data: { driverId: number },
     @ConnectedSocket() client: Socket,
   ) {
-    this.socketRegistry.setDriverSocket(data.driverId, client.id);
-    this.logger.log(`🔗 Driver Registered: ${data.driverId}`);
+    this.logger.log(`🔗 Driver Registered:`);
     client.emit('registered', { success: true });
   }
 
@@ -84,10 +99,10 @@ export class DriverGateway
         client.emit('ride-accepted', final);
       }
 
-      // to the user
+      // to the Customer
       const ride = final.data;
       if (!ride) return;
-      const customerSocketId = this.socketRegistry.getUserSocket(
+      const customerSocketId = this.socketRegistry.getCustomerSocket(
         ride.customer_id,
       );
       this.logger.log(`customer id : ${customerSocketId}`);
@@ -135,7 +150,8 @@ export class DriverGateway
         client.emit('rider-reached', ride);
 
         const customer_id = ride.data.customer_id;
-        const customerSocketId = this.socketRegistry.getUserSocket(customer_id);
+        const customerSocketId =
+          this.socketRegistry.getCustomerSocket(customer_id);
 
         if (customerSocketId) {
           this.server.to(customerSocketId).emit('ride-status-update', {
@@ -145,7 +161,7 @@ export class DriverGateway
             message: 'Your driver has arrived',
           });
         } else {
-          this.logger.warn(`❌ User ${customer_id} not connected`);
+          this.logger.warn(`❌ Customer ${customer_id} not connected`);
         }
       } else {
         client.emit('rider-reached', {
@@ -186,7 +202,8 @@ export class DriverGateway
         client.emit('rider-started-response', ride);
 
         const customer_id = ride.data.customer_id;
-        const customerSocketId = this.socketRegistry.getUserSocket(customer_id);
+        const customerSocketId =
+          this.socketRegistry.getCustomerSocket(customer_id);
 
         if (customerSocketId) {
           this.server.to(customerSocketId).emit('ride-status-update', {
@@ -234,7 +251,7 @@ export class DriverGateway
       if (ride.success == true && ride.data) {
         client.emit('ride-completed-response', ride);
 
-        const customerSocketId = this.socketRegistry.getUserSocket(
+        const customerSocketId = this.socketRegistry.getCustomerSocket(
           ride.data.customer_id,
         );
         if (customerSocketId) {

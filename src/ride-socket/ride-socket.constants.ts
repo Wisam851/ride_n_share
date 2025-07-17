@@ -1,7 +1,7 @@
 // ride-socket.constants.ts
 export const SOCKET_EVENTS = {
   DRIVER_REGISTER: 'driver-register',
-  USER_REGISTER: 'user-register',
+  Customer_REGISTER: 'customer-register',
   BOOK_RIDE: 'book-ride',
   RIDE_ACCEPTED: 'ride-accepted',
   RIDE_ARRIVED: 'ride-arrived',
