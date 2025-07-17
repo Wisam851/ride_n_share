@@ -74,7 +74,9 @@ export class UserAuthService {
       if (!role) throw new BadRequestException('Role Not Found');
 
       const userRole = this.userRoleRepo.create({
+        user_id: savedUser.id,
         user: savedUser,
+        role_id: role.id,
         role: role,
       });
       await this.userRoleRepo.save(userRole);

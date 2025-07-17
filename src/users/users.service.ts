@@ -13,6 +13,8 @@ import { CreateUserDto, UpdateUserDto } from './dtos/users.dto';
 import { UserDetailsDto } from './dtos/user_details.dto';
 import * as bcrypt from 'bcrypt';
 import { Exclude, instanceToPlain } from 'class-transformer';
+import { Role } from 'src/roles/entity/roles.entity';
+import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +23,10 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserDetails)
     private readonly userDetailsRepository: Repository<UserDetails>,
+    @InjectRepository(Role)
+    private roleRepo: Repository<Role>,
+    @InjectRepository(UserRole)
+    private userRoleRepo: Repository<UserRole>,
   ) {}
 
   /* ─────────────────────────────── CREATE USER ─────────────────────────────── */
@@ -37,6 +43,15 @@ export class UsersService {
       const saved = await this.userRepository.save(
         this.userRepository.create(dto),
       );
+      const role = await this.roleRepo.findOne({ where: { id: dto.role_id } });
+      if (!role) throw new NotFoundException('Role not found');
+      const userRole = await this.userRoleRepo.create({
+        user_id: saved.id,
+        user: saved,
+        role_id: role.id,
+        role: role,
+      });
+      await this.userRoleRepo.save(userRole);
       const { password, access_token, ...clean } = saved;
 
       return {

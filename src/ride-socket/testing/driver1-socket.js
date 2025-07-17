@@ -55,6 +55,7 @@ socket.on('rider-reached', (data) => {
     });
   }
 });
+
 socket.on('rider-started-response', (data) => {
   console.log('driver 1 ride is started');
   console.log('Ride start response:', data?.data?.id);

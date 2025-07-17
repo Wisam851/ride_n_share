@@ -24,6 +24,9 @@ export class CreateUserDto {
 
   @IsOptional()
   image: string;
+
+  @IsNotEmpty()
+  role_id: number;
 }
 
 export class UpdateUserDto {

@@ -262,4 +262,10 @@ export class DriverGateway
       });
     }
   }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_CANCELLED)
+  async handleRideCancelation(
+    @MessageBody() body: { rideId: number },
+    @ConnectedSocket() client: Socket,
+  ) {}
 }

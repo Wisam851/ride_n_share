@@ -8,4 +8,5 @@ export const SOCKET_EVENTS = {
   RIDE_STATUS_UPDATE: 'ride-status-update',
   RIDE_STARTED: 'ride-started',
   RIDE_COMPLETED: 'ride-completed',
+  RIDE_CANCELLED: 'ride-cancelled', 
 };
