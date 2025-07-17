@@ -9,7 +9,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RideBooking } from './entity/ride-booking.entity';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import {
-  AcceptRideDto,
   CalculateFareDto,
   CancelRideDto,
   RideBookingDto,
@@ -24,9 +23,12 @@ import {
   RideLocationType,
   RideStatus,
 } from 'src/common/enums/ride-booking.enum';
+import { RideRequestMem } from 'src/common/interfaces/ride-inteface';
 
 @Injectable()
 export class RideBookingService {
+  private rideRequests = new Map<number, RideRequestMem>();
+  private requestCounter = 1;
   constructor(
     @InjectRepository(RideBooking)
     private readonly rideBookRepo: Repository<RideBooking>,
@@ -97,7 +99,73 @@ export class RideBookingService {
     };
   }
 
-  async create(dto: RideBookingDto, customer_id: number) {
+  /** 1. Customer sends ride request */
+  async requestRide(dto: RideRequestDto, customerId: number) {
+    const id = this.requestCounter++;
+    this.rideRequests.set(id, {
+      id,
+      customerId,
+      dto,
+      offers: [],
+      status: RideStatus.REQUESTED,
+    });
+    return {
+      success: true,
+      message: 'Ride request created',
+      data: { requestId: id },
+    };
+  }
+
+  /** 2. Driver offers to take the ride */
+  async offerRide(requestId: number, driverId: number) {
+    const request = this.rideRequests.get(requestId);
+    if (!request) throw new NotFoundException('Ride request not found');
+
+    if (!request.offers.includes(driverId)) {
+      request.offers.push(driverId);
+      request.status = RideStatus.DRIVER_OFFERED;
+    }
+
+    return {
+      success: true,
+      message: 'Driver offer recorded',
+      data: { requestId, offers: request.offers },
+    };
+  }
+
+  /** 3. Customer confirms driver → Create booking */
+  async confirmRide(requestId: number, driverId: number, customerId: number) {
+    const request = this.rideRequests.get(requestId);
+    if (!request) throw new NotFoundException('Ride request not found');
+    if (request.customerId !== customerId)
+      throw new BadRequestException('Not your request');
+    if (!request.offers.includes(driverId))
+      throw new BadRequestException('Driver did not offer this ride');
+
+    // Create actual booking using your old logic (adapted)
+    const dto: RideBookingDto = {
+      ...request.dto,
+      driver_id: driverId,
+      fare_id: request.dto.fare_id,
+      base_fare: 0,
+      total_fare: 0,
+      routing: request.dto.routing,
+    };
+
+    const result = await this.createBooking(dto, customerId);
+
+    // Remove from memory
+    this.rideRequests.delete(requestId);
+
+    return {
+      success: true,
+      message: 'Ride confirmed successfully',
+      data: result,
+    };
+  }
+
+  /** Internal: Create Booking in DB (reuse old logic but status = CONFIRMED) */
+  private async createBooking(dto: RideBookingDto, customerId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -112,159 +180,64 @@ export class RideBookingService {
 
       if (!fare_standard)
         throw new BadRequestException('No active fare standard found');
-      if (fare_standard.id !== dto.fare_id)
-        throw new BadRequestException('Fare standard mismatch');
 
-      // Double-check fare consistency
       const expected = await this.calculateFare({
         ride_km: dto.ride_km,
         ride_timing: dto.ride_timing,
       });
-
       const expectedFare = expected.data;
-
-      if (!expectedFare) {
+      if (!expectedFare)
         throw new BadRequestException('Failed to calculate expected fare');
-      }
 
-      if (
-        Math.round(expectedFare.total_fare ?? 0) !==
-        Math.round(dto.total_fare ?? 0)
-      ) {
-        throw new BadRequestException('Fare calculation mismatch');
-      }
       const otp_code = Math.floor(10000 + Math.random() * 90000);
-      const ride = this.rideBookRepo.create({
+      const ride = this.dataSource.getRepository(RideBooking).create({
         ride_type: dto.type,
-        customer_id,
+        customer_id: customerId,
         driver_id: dto.driver_id,
         fare_standard_id: dto.fare_id,
         fare_standard,
-        base_fare: dto.base_fare,
-        total_fare: dto.total_fare,
-        discount: dto.discount,
+        base_fare: expectedFare.base_fare,
+        total_fare: expectedFare.total_fare,
+        discount: 0,
         otp_code: otp_code.toString(),
-        additional_cost: dto.additional_costs,
+        additional_cost: 0,
         additional_cost_reason: fare_standard.additional_cost_reason,
-        surcharge_amount: dto.surcharge_amount,
-        company_fees_amount: dto.company_fees_amount,
-        app_fees_amount: dto.app_fees_amount,
-        traffic_delay_amount: dto.traffic_delay_amount,
-        driver_fees_amount: dto.driver_fees_amount,
+        surcharge_amount: expectedFare.surcharge_amount,
+        company_fees_amount: expectedFare.company_fees_amount,
+        app_fees_amount: expectedFare.app_fees_amount,
+        traffic_delay_amount: 0,
+        driver_fees_amount: expectedFare.driver_fees_amount,
         ride_timing: dto.ride_timing,
-        ride_delay_time: dto.ride_delay_time,
+        ride_delay_time: 0,
         ride_km: dto.ride_km,
-        created_by: customer_id,
+        ride_status: RideStatus.CONFIRMED,
+        created_by: customerId,
       });
 
       const savedRide = await queryRunner.manager.save(RideBooking, ride);
 
-      await this.createRideLog(
-        queryRunner.manager,
-        savedRide,
-        RideStatus.BOOKED,
-        RideBookingNotes.BOOKED,
-        customer_id,
-      );
-
       const routingEntities = dto.routing.map((route) =>
-        this.rideRoutingRepo.create({
+        this.dataSource.getRepository(RideRouting).create({
           ride: savedRide,
           type: route.type,
           latitude: route.latitude,
           longitude: route.longitude,
-          created_by: customer_id,
+          created_by: customerId,
         }),
       );
       await queryRunner.manager.save(RideRouting, routingEntities);
 
       await queryRunner.commitTransaction();
-
-      return {
-        success: true,
-        message: 'Ride booking created successfully',
-        data: savedRide,
-      };
+      return savedRide;
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      this.handleUnknown(err);
+      throw err;
     } finally {
       await queryRunner.release();
     }
   }
 
-  // ride-booking.service.ts
-  async acceptRide(rideId: number, driverId: number, dto: AcceptRideDto) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const ride = await queryRunner.manager.findOne(RideBooking, {
-        where: { id: rideId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!ride) {
-        throw new NotFoundException('Ride not found');
-      }
-
-      if (ride.ride_status !== RideStatus.BOOKED) {
-        throw new BadRequestException('Ride is not available for acceptance');
-      }
-
-      if (ride.driver_id) {
-        throw new BadRequestException('Ride already accepted');
-      }
-      const driver = await this.userRepo.findOne({ where: { id: driverId } });
-      if (!driver) throw new NotFoundException('Driver Not Found');
-      // Update ride
-      ride.driver_id = driverId;
-      ride.driver = driver;
-      ride.ride_status = RideStatus.ACCEPTED;
-      await queryRunner.manager.save(RideBooking, ride);
-
-      // Save driver's current location
-      const driverLocation = this.rideRoutingRepo.create({
-        ride: ride,
-        type: RideLocationType.DRIVER_LOCATION,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        address: dto.address,
-        created_by: driverId,
-      });
-
-      await queryRunner.manager.save(RideRouting, driverLocation);
-
-      // Log ride status change
-      await this.createRideLog(
-        queryRunner.manager,
-        ride,
-        RideStatus.ACCEPTED,
-        RideBookingNotes.ACCEPTED,
-        driverId,
-      );
-
-      await queryRunner.commitTransaction();
-      const updatedRide = await this.rideBookRepo.findOne({
-        where: { id: ride.id },
-      });
-      this.logger.debug(
-        'Ride Status from DB is THis:',
-        updatedRide?.ride_status,
-      );
-      return {
-        success: true,
-        message: 'Ride accepted successfully',
-        data: updatedRide,
-      };
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      this.handleUnknown(err);
-    } finally {
-      await queryRunner.release();
-    }
-  }
+  /** Fare calculation placeholder (reuse your existing method) */
 
   async arrivedRide(rideId: number, driverid: number) {
     const queryRunner = this.dataSource.createQueryRunner();

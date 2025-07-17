@@ -17,6 +17,55 @@ import {
   RideType,
 } from 'src/common/enums/ride-booking.enum';
 
+export class RideRequestDto {
+  @IsNotEmpty()
+  @IsEnum(RideType)
+  type: RideType;
+
+  @IsNumber()
+  fare_id: number;
+
+  @IsNumber()
+  ride_km: number;
+
+  @IsNumber()
+  ride_timing: number;
+
+  @IsArray()
+  @ArrayMinSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => RideRoutingInput)
+  routing: RideRoutingInput[];
+}
+
+export class RideRoutingInput {
+  @IsNotEmpty()
+  @IsEnum(RideLocationType)
+  type: RideLocationType;
+
+  @IsLatitude()
+  latitude: number;
+
+  @IsLongitude()
+  longitude: number;
+}
+
+// ----------- Driver Offer (Driver → says "I can take it")
+export class DriverOfferDto {
+  @IsNumber()
+  requestId: number;
+}
+
+// ----------- Customer Confirms (Final Booking)
+export class ConfirmRideDto {
+  @IsNumber()
+  requestId: number;
+
+  @IsNumber()
+  driverId: number;
+}
+
+// ----------- For compatibility (Final booking fields)
 export class RideBookingDto {
   @IsNotEmpty()
   @IsEnum(RideType)
@@ -29,34 +78,6 @@ export class RideBookingDto {
   @IsOptional()
   @IsNumber()
   fare_id: number;
-
-  @IsOptional()
-  @IsNumber()
-  discount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  additional_costs?: number;
-
-  @IsOptional()
-  @IsNumber()
-  driver_fees_amount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  company_fees_amount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  app_fees_amount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  traffic_delay_amount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  surcharge_amount?: number;
 
   @IsOptional()
   @IsNumber()
@@ -73,10 +94,6 @@ export class RideBookingDto {
   @IsNotEmpty()
   @IsNumber()
   ride_timing: number;
-
-  @IsOptional()
-  @IsNumber()
-  ride_delay_time?: number;
 
   @IsArray()
   @ArrayMinSize(2)
@@ -133,34 +150,6 @@ export class CalculateFareDto {
 
   @IsNumber()
   ride_timing: number;
-}
-
-export class RideRoutingInput {
-  @IsNotEmpty()
-  @IsEnum(RideLocationType)
-  type: RideLocationType;
-
-  @IsNotEmpty()
-  @IsNumber()
-  @IsLatitude()
-  latitude: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  @IsLongitude()
-  longitude: number;
-}
-
-export class AcceptRideDto {
-  @IsLatitude()
-  latitude: number;
-
-  @IsLongitude()
-  longitude: number;
-
-  @IsString()
-  @IsNotEmpty()
-  address: string;
 }
 
 export class CancelRideDto {

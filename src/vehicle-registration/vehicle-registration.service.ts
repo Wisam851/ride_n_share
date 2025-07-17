@@ -52,7 +52,7 @@ export class VehicleRegistrationService {
       const userVehicle = this.userVehicleRepo.create({
         user,
         vehicle: savedVehicle,
-      });
+      });  
 
       await this.userVehicleRepo.save(userVehicle);
 
