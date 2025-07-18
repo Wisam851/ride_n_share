@@ -60,6 +60,7 @@ export class RideBookingController {
   @Roles('driver')
   @Get('arrived-ride/:id')
   arrivedRide(@Param('id') id: number, @CurrentUser('id') driver: number) {
+    console.log("hello")
     return this.service.arrivedRide(id, driver);
   }
 
