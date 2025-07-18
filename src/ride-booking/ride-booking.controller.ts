@@ -14,7 +14,7 @@ import {
   ConfirmRideDto,
   DriverOfferDto,
   RideRequestDto,
-} from './dtos/create-ride-booking.dto';
+} from './dtos/ride-booking.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';

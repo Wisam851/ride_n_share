@@ -19,27 +19,27 @@ export class RideBooking {
   @Column({ type: 'enum', enum: RideType, default: RideType.PRIVATE })
   ride_type: RideType;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   customer_id: number;
 
-  @ManyToOne(() => User, {nullable: true})
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'customer_id' })
   customer: User;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   driver_id: number;
 
-  @Column({nullable: true})
-  otp_code: string
+  @Column({ nullable: true })
+  otp_code: string;
 
-  @ManyToOne(() => User, {nullable: true})
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'driver_id' })
   driver: User;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   fare_standard_id: number;
 
-  @ManyToOne(() => RideFareStandard, {nullable: true})
+  @ManyToOne(() => RideFareStandard, { nullable: true })
   @JoinColumn({ name: 'fare_standard_id' })
   fare_standard: RideFareStandard;
 
@@ -95,7 +95,7 @@ export class RideBooking {
   @Column({ type: 'varchar', unique: true })
   ride_no: string;
 
-  @Column({ type: 'enum', enum: RideStatus, default: RideStatus.BOOKED })
+  @Column({ type: 'enum', enum: RideStatus, default: RideStatus.REQUESTED })
   ride_status: RideStatus;
 
   @Column({ type: 'varchar', nullable: true })

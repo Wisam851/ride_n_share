@@ -63,7 +63,7 @@ export class RideBookingSeederService {
       ride_km: 10.5,
       ride_start_time: new Date(),
       ride_end_time: new Date(),
-      ride_status: RideStatus.BOOKED,
+      ride_status: RideStatus.REQUESTED,
       cancel_reason: undefined,
       created_by: 1, // ✅ FIXED here
       status: 1,

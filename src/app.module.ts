@@ -30,9 +30,11 @@ import { UserAuthSeederModule } from './auth/user/seeder/user-auth-seeder.module
 import { UserAuthSeederService } from './auth/user/seeder/user-auth-seeder.service';
 import { AdminAuthSeederModule } from './admin/seeder/admin-auth-seeder.module';
 import { AdminAuthSeederService } from './admin/seeder/admin-auth-seeder.service';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),

@@ -7,6 +7,10 @@ import { User } from 'src/users/entity/user.entity';
 import { RideFareStandard } from 'src/ride-fare-standards/entity/ride-fare-standards.entity';
 import { RideRouting } from './entity/ride-routing.entity';
 import { RideBookingLog } from './entity/ride-booking-logs.entity';
+import { RideRequest } from './entity/requests/ride_requests.entity';
+import { RideRequestRouting } from './entity/requests/ride_request_routing.entity';
+import { RideRequestEvent } from './entity/requests/ride_request_events.entity';
+import { RideDriverOffer } from './entity/requests/ride_driver_offers.entity';
 
 @Module({
   imports: [
@@ -16,6 +20,10 @@ import { RideBookingLog } from './entity/ride-booking-logs.entity';
       RideFareStandard,
       RideRouting,
       RideBookingLog,
+      RideRequest,
+      RideRequestRouting,
+      RideRequestEvent,
+      RideDriverOffer,
     ]),
   ],
   controllers: [RideBookingController],

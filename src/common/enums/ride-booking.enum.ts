@@ -20,7 +20,8 @@ export enum RideStatus {
 export enum RideLocationType {
   PICKUP = 'pickup',
   DROPOFF = 'dropoff',
-  DRIVER_LOCATION = 'driver_location',
+  WAYPOINT = 'waypoint',
+  DRIVER_LOCATION = 'driver_location', // used in booking stage
 }
 
 export enum RideBookingNotes {
@@ -30,4 +31,16 @@ export enum RideBookingNotes {
   STARTED = 'Ride Started',
   COMPLETED = 'Ride Completed',
   CANCELLED = 'Ride Cancelled',
+}
+export enum RideDriverOfferStatus {
+  ACTIVE = 'active',
+  SELECTED = 'selected',
+  REJECTED = 'rejected',
+  EXPIRED = 'expired',
+  WITHDRAWN = 'withdrawn',
+}
+export enum RideEventActorType {
+  CUSTOMER = 'customer',
+  DRIVER = 'driver',
+  SYSTEM = 'system',
 }

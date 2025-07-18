@@ -16,6 +16,7 @@ import {
   RideStatus,
   RideType,
 } from 'src/common/enums/ride-booking.enum';
+import { Column } from 'typeorm';
 
 export class RideRequestDto {
   @IsNotEmpty()
@@ -48,6 +49,12 @@ export class RideRoutingInput {
 
   @IsLongitude()
   longitude: number;
+
+  @Column({nullable: true})
+  address: string;
+
+  @Column()
+  seq: number;
 }
 
 // ----------- Driver Offer (Driver → says "I can take it")

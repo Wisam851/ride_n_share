@@ -65,7 +65,7 @@ export class DriverGateway
     client.emit('registered', { success: true });
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.RIDE_ACCEPTED)
+  /* @SubscribeMessage(SOCKET_EVENTS.RIDE_ACCEPTED)
   async handleAcceptRide(
     @MessageBody()
     data: {
@@ -128,7 +128,7 @@ export class DriverGateway
         error: error.message || 'Internal error',
       });
     }
-  }
+  } */
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_ARRIVED)
   async handleRideArrived(

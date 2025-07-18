@@ -13,7 +13,7 @@ import { Namespace, Socket } from 'socket.io';
 import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { plainToInstance } from 'class-transformer';
-import { RideBookingDto } from 'src/ride-booking/dtos/create-ride-booking.dto';
+import { RideBookingDto } from 'src/ride-booking/dtos/ride-booking.dto';
 import { validate } from 'class-validator';
 import { SocketRegisterService } from '../socket-registry.service';
 import { authenticateSocket } from '../utils/socket-auth.util';
@@ -101,12 +101,12 @@ export class CustomerGateway
     }
 
     // create ride
-    const result = await this.rideBookingService.create(dto, customerId);
-    client.emit('BOOK_RIDE_SUCCESS', {
-      success: true,
-      message: 'Ride booked successfully',
-      data: result,
-    });
+    // const result = await this.rideBookingService.create(dto, customerId);
+    // client.emit('BOOK_RIDE_SUCCESS', {
+    //   success: true,
+    //   message: 'Ride booked successfully',
+    //   data: result,
+    // });
 
     // notify drivers across namespace
     const driverNs = this.server.server.of('/driver'); // <--- critical line
@@ -117,7 +117,7 @@ export class CustomerGateway
       driverNs.to(ref.socketId).emit('new-ride-request', {
         type: 'booking',
         message: 'A new ride is available for acceptance',
-        rideData: result,
+        rideData: [],
       });
     }
   }
