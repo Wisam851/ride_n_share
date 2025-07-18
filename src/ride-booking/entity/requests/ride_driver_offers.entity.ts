@@ -49,7 +49,7 @@ export class RideDriverOffer {
   status: RideDriverOfferStatus;
 
   @Column({ type: 'jsonb', nullable: true })
-  meta_json: Record<string, any>; // e.g., { eta: 5, vehicle: 'Toyota Prius' }
+  meta_json: Record<string, any> | null; // e.g., { eta: 5, vehicle: 'Toyota Prius' }
 
   @Column({ type: 'date' })
   created_at: string;

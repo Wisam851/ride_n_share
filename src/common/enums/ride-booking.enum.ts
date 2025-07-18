@@ -25,7 +25,7 @@ export enum RideLocationType {
 }
 
 export enum RideBookingNotes {
-  BOOKED = 'Ride Booked',
+  CONFIRMED = 'Ride Confirmed',
   ACCEPTED = 'Ride Accepted by Driver',
   ARRIVED = 'Driver Arrived at Pickup',
   STARTED = 'Ride Started',

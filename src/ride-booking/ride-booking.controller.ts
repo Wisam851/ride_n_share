@@ -11,7 +11,7 @@ import { RideBookingService } from './ride-booking.service';
 import {
   CalculateFareDto,
   CancelRideDto,
-  ConfirmRideDto,
+  ConfirmDriverDto,
   DriverOfferDto,
   RideRequestDto,
 } from './dtos/ride-booking.dto';
@@ -19,6 +19,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { User } from 'src/users/entity/user.entity';
 
 @UseGuards(UserJwtAuthGuard, RolesGuard)
 @Controller('ride-bookings')
@@ -43,17 +44,17 @@ export class RideBookingController {
   @Roles('driver')
   @Post('offer')
   offerRide(@Body() dto: DriverOfferDto, @CurrentUser('id') driverId: number) {
-    return this.service.offerRide(dto.requestId, driverId);
+    return this.service.offerRide(dto.requestId, driverId, dto);
   }
 
   // 3. Customer Confirms Driver (Booking Created)
   @Roles('customer')
   @Post('confirm')
-  confirmRide(
-    @Body() dto: ConfirmRideDto,
-    @CurrentUser('id') customerId: number,
+  async confirmDriver(
+    @Body() dto: ConfirmDriverDto,
+    @CurrentUser() user: User,
   ) {
-    return this.service.confirmRide(dto.requestId, dto.driverId, customerId);
+    return this.service.confirmDriver(dto.requestId, dto.driverId, user.id);
   }
 
   @Roles('driver')
@@ -68,7 +69,7 @@ export class RideBookingController {
     @Param('id') id: number,
     @CurrentUser('id') driverId: number,
   ) {
-    return this.service.verifyAndStartRide(id, driverId);
+    return this.service.startRide(id, driverId);
   }
 
   @Roles('driver')

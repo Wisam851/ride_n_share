@@ -50,7 +50,7 @@ export class RideRoutingInput {
   @IsLongitude()
   longitude: number;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   address: string;
 
   @Column()
@@ -61,16 +61,20 @@ export class RideRoutingInput {
 export class DriverOfferDto {
   @IsNumber()
   requestId: number;
+
+  @IsNumber()
+  longitude: number;
+
+  @IsNumber()
+  latitude: number;
 }
 
 // ----------- Customer Confirms (Final Booking)
-export class ConfirmRideDto {
-  @IsNumber()
-  requestId: number;
-
-  @IsNumber()
-  driverId: number;
+export class ConfirmDriverDto {
+  @IsNumber() requestId: number;
+  @IsNumber() driverId: number;
 }
+
 
 // ----------- For compatibility (Final booking fields)
 export class RideBookingDto {
