@@ -1,7 +1,7 @@
 import { RideStatus, RideType } from 'src/common/enums/ride-booking.enum';
 import { User } from 'src/users/entity/user.entity';
 import {
-    BeforeInsert,
+  BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
@@ -39,6 +39,12 @@ export class RideRequest {
 
   @Column({ nullable: true, type: 'numeric' })
   ride_timing: number;
+
+  @Column({ type: 'numeric', nullable: true })
+  base_fare: number;
+
+  @Column({ type: 'numeric', nullable: true })
+  total_fare: number;
 
   @Column({ type: 'enum', enum: RideStatus, default: RideStatus.REQUESTED })
   status: RideStatus;

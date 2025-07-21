@@ -162,6 +162,8 @@ export class RideBookingService {
           fare_standard_id: dto.fare_id,
           ride_type: dto.type,
           ride_km: dto.ride_km,
+          base_fare: expectedFare.base_fare,
+          total_fare: expectedFare.total_fare,
           ride_timing: dto.ride_timing,
           status: RideStatus.REQUESTED,
           expires_at: new Date(Date.now() + 60 * 1000),
@@ -407,8 +409,29 @@ export class RideBookingService {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-
+    const usersQuery = queryRunner.manager.getRepository(User);
     try {
+      const customer = await usersQuery.findOne({ where: { id: customerId } });
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+      const driver = await usersQuery.findOne({
+        where: { id: driverId },
+      });
+      if (!driver) {
+        throw new NotFoundException('Drvier not found');
+      }
+      if (driver.isOnline !== 1) {
+        throw new BadRequestException('Driver is offline');
+      }
+      const fare_standard = await queryRunner.manager.findOne(
+        RideFareStandard,
+        {
+          where: { status: 1 },
+        },
+      );
+      if (!fare_standard)
+        throw new BadRequestException('No active fare standard found');
       // ---------------------------------------------
       // 1. Lock ride_request row (NO relations!)
       // ---------------------------------------------
@@ -432,6 +455,28 @@ export class RideBookingService {
 
       if (rideRequest.expires_at && rideRequest.expires_at <= new Date()) {
         throw new BadRequestException('Ride request expired.');
+      }
+
+      // ---------------------------------------------
+      // 1.1 for recalculatinos
+      // ---------------------------------------------
+
+      const expected = await this.calculateFare({
+        ride_km: rideRequest.ride_km,
+        ride_timing: rideRequest.ride_timing,
+      });
+      const expectedFare = expected.data;
+      if (!expectedFare)
+        throw new BadRequestException('Failed to calculate expected fare');
+      const expectedTotal = Number(expectedFare.total_fare);
+      const expectedBase = Number(expectedFare.base_fare);
+      const requestTotal = Number(rideRequest.total_fare);
+      const requestBase = Number(rideRequest.base_fare);
+
+      if (expectedTotal !== requestTotal || expectedBase !== requestBase) {
+        console.log('Total fare', expectedTotal, ':', requestTotal);
+        console.log('Base fare', expectedBase, ':', requestBase);
+        throw new BadRequestException('The fare did not match');
       }
 
       // ---------------------------------------------
@@ -478,9 +523,17 @@ export class RideBookingService {
         fare_standard_id: rideRequest.fare_standard_id,
         ride_km: rideRequest.ride_km,
         ride_timing: rideRequest.ride_timing,
+        base_fare: expectedFare.base_fare,
+        total_fare: expectedFare.total_fare,
+        discount: expectedFare.discount,
+        additional_cost: expectedFare.additional_cost,
+        surcharge_amount: expectedFare.surcharge_amount,
+        company_fees_amount: expectedFare.company_fees_amount,
+        app_fees_amount: expectedFare.app_fees_amount,
+        driver_fees_amount: expectedFare.driver_fees_amount,
         ride_status: RideStatus.CONFIRMED,
         otp_code: this.generateOtp(6),
-        // created_by: rideRequest.customer_id, // uncomment if column required & not relation mismatch
+        created_by: rideRequest.customer_id, // uncomment if column required & not relation mismatch
       });
       await queryRunner.manager.save(booking);
 
@@ -565,7 +618,15 @@ export class RideBookingService {
 
       await queryRunner.commitTransaction();
 
-      return { success: true, bookingId: booking.id };
+      return {
+        success: true,
+        bookingId: booking.id,
+        data: {
+          ride: booking,
+          customer: customer,
+          driver: driver,
+        },
+      };
     } catch (err) {
       await queryRunner.rollbackTransaction();
       this.handleUnknown(err);
@@ -962,7 +1023,34 @@ export class RideBookingService {
       this.handleUnknown(err);
     }
   }
+  // Get request + customer id (minimal object)
+  async getRequestWithCustomer(requestId: number): Promise<RideRequest | null> {
+    return this.dataSource.getRepository(RideRequest).findOne({
+      where: { id: requestId },
+      select: ['id', 'customer_id', 'status'],
+    });
+  }
 
+  // Return driver IDs that have active offers for a request
+  async getOfferingDriverIds(requestId: number): Promise<number[]> {
+    const rows = await this.dataSource.getRepository(RideDriverOffer).find({
+      where: { request_id: requestId },
+      select: ['driver_id'],
+    });
+    return rows.map((r) => r.driver_id);
+  }
+
+  // All drivers who offered EXCEPT the winning driver
+  async getLosingDriversForRequest(
+    requestId: number,
+    winningDriverId: number,
+  ): Promise<number[]> {
+    const rows = await this.dataSource.getRepository(RideDriverOffer).find({
+      where: { request_id: requestId },
+      select: ['driver_id'],
+    });
+    return rows.map((r) => r.driver_id).filter((id) => id !== winningDriverId);
+  }
   /* private buildOfferMeta(dto: DriverOfferDto) {
     const meta: Record<string, any> = {};
     if (dto.eta_minutes !== undefined) meta.eta = dto.eta_minutes;
@@ -1045,7 +1133,7 @@ export class RideBookingService {
       [RideStatus.CANCELLED_BY_DRIVER]: [],
       [RideStatus.EXPIRED]: [],
       [RideStatus.CUSTOMER_SELECTED]: [],
-      [RideStatus.DRIVER_EN_ROUTE]: []
+      [RideStatus.DRIVER_EN_ROUTE]: [],
     };
 
     const allowedTargets = allowed[from] ?? [];

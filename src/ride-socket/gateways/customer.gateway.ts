@@ -9,22 +9,27 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Namespace, Socket } from 'socket.io';
+import { Namespace, Socket, Server } from 'socket.io';
 import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { plainToInstance } from 'class-transformer';
-import { RideBookingDto } from 'src/ride-booking/dtos/ride-booking.dto';
+import {
+  RideBookingDto,
+  RideRequestDto,
+} from 'src/ride-booking/dtos/ride-booking.dto';
 import { validate } from 'class-validator';
 import { SocketRegisterService } from '../socket-registry.service';
 import { authenticateSocket } from '../utils/socket-auth.util';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
+import { getRootServer } from '../utils/get-root-server.util';
 
 @WebSocketGateway({ namespace: 'customer', cors: { origin: '*' } })
 export class CustomerGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Namespace; // server for /customer namespace
+  private ioServer: Server;
   private logger = new Logger('CustomerGateway');
 
   constructor(
@@ -33,9 +38,12 @@ export class CustomerGateway
   ) {}
 
   afterInit() {
+    this.ioServer = this.server.server as Server;
     this.logger.log('✅ Customer WebSocket Initialized');
   }
-
+  private getDriverNamespace() {
+    return this.ioServer.of('/driver');
+  }
   async handleConnection(client: Socket) {
     try {
       const user = authenticateSocket(client);
@@ -62,37 +70,40 @@ export class CustomerGateway
     this.socketRegistry.removeSocket(client.id);
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.Customer_REGISTER)
+  // no-op, legacy
+  @SubscribeMessage(SOCKET_EVENTS.CUSTOMER_REGISTER)
   @UseGuards(WsRolesGuard)
   @WsRoles('customer')
   handleRegister(@ConnectedSocket() client: Socket) {
-    this.logger.log(`🔗 Customer Register event (noop) socket=${client.id}`);
     client.emit('registered', { success: true });
   }
 
-  @SubscribeMessage(SOCKET_EVENTS.BOOK_RIDE)
-  async handleRideBooking(
+  /** NEW: Customer Ride Request */
+  @SubscribeMessage(SOCKET_EVENTS.REQUEST_RIDE)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('customer')
+  async handleRequestRide(
     @MessageBody() data: unknown,
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log('📨 BOOK_RIDE event received');
+    this.logger.log('📨 REQUEST_RIDE event received');
     const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
     if (!customerId) {
-      client.emit('BOOK_RIDE_ERROR', {
+      client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
         message: 'Customer not registered or session expired',
       });
       return;
     }
 
-    // validate DTO
-    const dto = plainToInstance(RideBookingDto, data);
+    // validate input (socket payload -> dto)
+    const dto = plainToInstance(RideRequestDto, data);
     const errors = await validate(dto);
     if (errors.length > 0) {
       const messages = errors
         .map((err) => (err.constraints ? Object.values(err.constraints) : []))
         .flat();
-      client.emit('BOOK_RIDE_ERROR', {
+      client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
         message: 'Validation error',
         error: messages,
@@ -100,25 +111,148 @@ export class CustomerGateway
       return;
     }
 
-    // create ride
-    // const result = await this.rideBookingService.create(dto, customerId);
-    // client.emit('BOOK_RIDE_SUCCESS', {
-    //   success: true,
-    //   message: 'Ride booked successfully',
-    //   data: result,
-    // });
-
-    // notify drivers across namespace
-    const driverNs = this.server.server.of('/driver'); // <--- critical line
-    const driverRefs = this.socketRegistry.getAllDriversSockets();
-    this.logger.log(`📢 Notifying ${driverRefs.length} drivers of new ride`);
-
-    for (const ref of driverRefs) {
-      driverNs.to(ref.socketId).emit('new-ride-request', {
-        type: 'booking',
-        message: 'A new ride is available for acceptance',
-        rideData: [],
+    // create ride request in DB
+    let result;
+    try {
+      result = await this.rideBookingService.requestRide(dto, customerId);
+    } catch (err: any) {
+      this.logger.error(`requestRide failed: ${err.message}`);
+      client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
+        success: false,
+        message: err.message || 'Ride request failed',
       });
+      return;
+    }
+
+    const { rideRequest, customer } = result.data;
+
+    // ack to requesting customer
+    client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
+      success: true,
+      message: result.message,
+      data: {
+        requestId: rideRequest.id,
+        fare_id: rideRequest.fare_standard_id,
+        base_fare: rideRequest.base_fare,
+        total_fare: rideRequest.total_fare,
+        ride_km: rideRequest.ride_km,
+        ride_timing: rideRequest.ride_timing,
+        expires_at: rideRequest.expires_at,
+      },
+    });
+
+    // broadcast to drivers (trimmed payload)
+    const root = getRootServer(this.server);
+    const driverNs = root.of('/driver');
+    const driverRefs = this.socketRegistry.getAllDriversSockets();
+    this.logger.log(
+      `📢 Broadcasting ride request ${rideRequest.id} to ${driverRefs.length} drivers`,
+    );
+
+    const broadcastPayload = {
+      requestId: rideRequest.id,
+      customerId,
+      type: dto.type,
+      ride_km: dto.ride_km,
+      ride_timing: dto.ride_timing,
+      pickup: dto.routing?.find((r) => r.type === 'pickup') || dto.routing?.[0],
+      dropoff:
+        dto.routing?.find((r) => r.type === 'dropoff') ||
+        dto.routing?.[dto.routing.length - 1],
+      expires_at: rideRequest.expires_at,
+    };
+
+    // send to all connected drivers
+    for (const ref of driverRefs) {
+      driverNs
+        .to(ref.socketId)
+        .emit(SOCKET_EVENTS.RIDE_REQUEST_BROADCAST, broadcastPayload);
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.CONFIRM_DRIVER)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('customer')
+  async handleConfirmDriver(
+    @MessageBody() data: { requestId: number; driverId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
+    if (!customerId) {
+      client.emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
+        success: false,
+        message: 'Customer not registered or session expired',
+      });
+      return;
+    }
+
+    if (!data?.requestId || !data?.driverId) {
+      client.emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
+        success: false,
+        message: 'requestId and driverId required',
+      });
+      return;
+    }
+
+    let result;
+    try {
+      result = await this.rideBookingService.confirmDriver(
+        data.requestId,
+        data.driverId,
+        customerId,
+      );
+    } catch (err: any) {
+      client.emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
+        success: false,
+        message: err.message || 'Confirm failed',
+      });
+      return;
+    }
+
+    // result.data = { success:true,... includes booking result shape from service }
+    client.emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+
+    // Notify selected driver
+    const root = getRootServer(this.server);
+    const driverNs = root.of('/driver');
+    const driverRef = this.socketRegistry.getDriverSocket(data.driverId);
+    if (driverRef) {
+      driverNs.to(driverRef.socketId).emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
+        success: true,
+        message: 'Ride confirmed and assigned to you.',
+        data: result.data,
+      });
+    }
+
+    // Optionally notify *other* drivers that request closed
+    this.notifyLosingDrivers(root, data.requestId, data.driverId);
+  }
+
+  /** tell drivers who weren't selected */
+  private async notifyLosingDrivers(
+    rootServer: any,
+    requestId: number,
+    winningDriverId: number,
+  ) {
+    const driverNs = rootServer.of('/driver');
+    const losingDriverIds =
+      await this.rideBookingService.getLosingDriversForRequest(
+        requestId,
+        winningDriverId,
+      );
+    for (const driverId of losingDriverIds) {
+      const ref = this.socketRegistry.getDriverSocket(driverId);
+      if (ref) {
+        driverNs.to(ref.socketId).emit(SOCKET_EVENTS.RIDE_REQUEST_BROADCAST, {
+          closed: true,
+          requestId,
+          message: 'This ride has been assigned to another driver.',
+        });
+      }
     }
   }
 }

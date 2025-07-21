@@ -64,6 +64,73 @@ export class DriverGateway
     this.logger.log(`🔗 Driver Register event (noop) socket=${client.id}`);
     client.emit('registered', { success: true });
   }
+  @SubscribeMessage(SOCKET_EVENTS.OFFER_RIDE)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('driver')
+  async handleOfferRide(
+    @MessageBody() data: { requestId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+    if (!driverId) {
+      client.emit('offer-error', {
+        success: false,
+        message: 'Driver not registered',
+      });
+      return;
+    }
+
+    if (!data?.requestId) {
+      client.emit('offer-error', {
+        success: false,
+        message: 'requestId required',
+      });
+      return;
+    }
+
+    let result;
+    try {
+      result = await this.rideBookingService.offerRide(
+        data.requestId,
+        driverId,
+      );
+    } catch (err: any) {
+      client.emit('offer-error', {
+        success: false,
+        message: err.message || 'Offer failed',
+      });
+      return;
+    }
+
+    // Notify driver their offer was recorded
+    client.emit('offer-success', {
+      success: true,
+      message: result.message,
+      data: result.data,
+    });
+
+    // Notify customer with updated offers
+    const root = getRootServer(this.server);
+    const custNs = root.of('/customer');
+
+    // request ID in result
+    const requestId = result.data.requestId;
+    const offers = result.data.offers; // array of driver IDs
+    // Find the customer for this request via service (or return it in result)
+    const rideReq =
+      await this.rideBookingService.getRequestWithCustomer(requestId);
+    if (rideReq) {
+      const custRef = this.socketRegistry.getCustomerSocket(
+        rideReq.customer_id,
+      );
+      if (custRef) {
+        custNs.to(custRef.socketId).emit(SOCKET_EVENTS.RIDE_OFFERS_UPDATE, {
+          requestId,
+          offers, // driverId[]
+        });
+      }
+    }
+  }
 
   /* @SubscribeMessage(SOCKET_EVENTS.RIDE_ACCEPTED)
   async handleAcceptRide(
@@ -197,12 +264,11 @@ export class DriverGateway
       };
     }
     try {
-      const ride = await this.rideBookingService.verifyAndStartRide(
+      /* const ride = await this.rideBookingService.verifyAndStartRide(
         body.rideId,
         driverId,
-      );
-
-      if (ride.success === true && ride.data) {
+      ); */
+      /* if (ride.success === true && ride.data) {
         client.emit('rider-started-response', ride);
 
         const customer_id = ride.data.customer_id;
@@ -222,7 +288,7 @@ export class DriverGateway
           success: false,
           message: 'Ride Stating failed',
         });
-      }
+      } */
     } catch (error) {
       this.logger.error('❌ Ride Started Error:', error.message);
       client.emit('rider-started-response', {
