@@ -16,6 +16,8 @@ import { SocketRegisterService } from '../socket-registry.service';
 import { authenticateSocket } from '../utils/socket-auth.util';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
+import { getRootServer } from '../utils/get-root-server.util'; // or wherever it's defined
+import { DriverOfferDto } from 'src/ride-booking/dtos/ride-booking.dto';
 
 @WebSocketGateway({ namespace: 'driver', cros: { origin: '*' } })
 export class DriverGateway
@@ -68,7 +70,7 @@ export class DriverGateway
   @UseGuards(WsRolesGuard)
   @WsRoles('driver')
   async handleOfferRide(
-    @MessageBody() data: { requestId: number },
+    @MessageBody() data: { requestId: number, latitude: number; longitude: number },
     @ConnectedSocket() client: Socket,
   ) {
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
@@ -90,10 +92,18 @@ export class DriverGateway
 
     let result;
     try {
-      result = await this.rideBookingService.offerRide(
-        data.requestId,
-        driverId,
-      );
+      // result = await this.rideBookingService.offerRide(
+      //   data.requestId,
+      //   driverId,
+      // );
+      result = await this.rideBookingService.offerRide(data.requestId, driverId, 
+        {
+          requestId: data.requestId,
+          latitude: data.latitude,
+          longitude: data.longitude,
+        }
+  );
+
     } catch (err: any) {
       client.emit('offer-error', {
         success: false,
