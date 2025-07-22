@@ -32,7 +32,7 @@ jobs:
       - name: Deploy via FTP (Hostinger, cPanel, etc.)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: datainovate.com
+          server: ftp.datainovate.com
           username: u330229012.ridenshare
           password: Newpass@2025@
 
