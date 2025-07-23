@@ -28,11 +28,11 @@ jobs:
       # - name: Run Tests
       #   run: npm run test
 
-      # --- Deployment Step (adjust as needed) ---
-      - name: Deploy via FTP (Hostinger, cPanel, etc.)
+      - name: Deploy via FTP to Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ftp.datainovate.com
           username: u330229012.ridenshare
           password: Newpass@2025@
-
+          local-dir: ./dist
+          server-dir: /public_html/ridenshare/  # Adjust to your cPanel root folder
