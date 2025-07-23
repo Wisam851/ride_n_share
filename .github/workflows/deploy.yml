@@ -22,7 +22,7 @@ jobs:
         run: npm install
 
       - name: Build NestJS App
-      # run: npm run build
+      run: npm run build
 
       # OPTIONAL: Run tests
       # - name: Run Tests
