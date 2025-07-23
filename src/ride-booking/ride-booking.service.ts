@@ -50,6 +50,7 @@ import { ConfigService } from '@nestjs/config';
 export class RideBookingService {
   private rideRequests = new Map<number, RideRequestMem>();
   private requestCounter = 1;
+  verifyAndStartRide: any;
   constructor(
     @InjectRepository(RideBooking)
     private readonly rideBookRepo: Repository<RideBooking>,
