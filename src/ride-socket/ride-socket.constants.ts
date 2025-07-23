@@ -19,4 +19,9 @@ export const SOCKET_EVENTS = {
   RIDE_COMPLETED: 'ride-completed',
   RIDE_CANCELLED: 'ride-cancelled',
   RIDE_STATUS_UPDATE: 'ride-status-update', // optional generic push
+  
+  RIDE_ERROR: 'ride-error', // generic error during ride lifecycle
+  OFFER_SUCCESS: 'offer-success',
+  OFFER_ERROR: 'offer-error',
+  UNAUTHORIZED: 'unauthorized',
 } as const;
