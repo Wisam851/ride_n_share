@@ -34,5 +34,5 @@ jobs:
           server: ftp.datainovate.com
           username: u330229012.ridenshare
           password: Newpass@2025@
-          local-dir: ./dist
+          local-dir: ./dist/
           server-dir: /public_html/ridenshare/  # Adjust to your cPanel root folder
