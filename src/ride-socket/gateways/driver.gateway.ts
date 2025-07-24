@@ -58,6 +58,9 @@ export class DriverGateway
 
       this.logger.log(`✅ Driver connected: userId=${user.sub}, socketId=${client.id}`);
       this.socketRegistry.setDriverSocket(user.sub, client.id, '/driver');
+
+      const allDrivers = this.socketRegistry.getAllDriversSockets();
+      this.logger.log(`👥 Total registered drivers: ${allDrivers.length}`);
     } catch (err) {
       this.logger.error(`❌ Socket authentication failed: ${err.message}`);
       client.emit('unauthorized', { message: err.message });
@@ -124,7 +127,7 @@ export class DriverGateway
       });
 
       const rideReq = await this.rideBookingService.getRequestWithCustomer(
-        result.data.request.id,
+        data.requestId,
       );
 
       if (rideReq) {
@@ -134,12 +137,17 @@ export class DriverGateway
         if (customerRef) {
           const root = getRootServer(this.server);
           const customerNs = root.of('/customer');
+
           customerNs.to(customerRef.socketId).emit(
             SOCKET_EVENTS.RIDE_OFFERS_UPDATE,
             {
-              requestId: result.data.request.id,
-              offers: result.data.offer,
+              requestId: data.requestId,
+              offers: result.data, // this should include the driver info
             },
+          );
+
+          this.logger.log(
+            `📤 Notified customerId=${rideReq.customer_id} about driver offer`,
           );
         }
       }
@@ -148,6 +156,7 @@ export class DriverGateway
         success: false,
         message: err.message || 'Offer failed',
       });
+      this.logger.error(`❌ OFFER_RIDE error: ${err.message}`);
     }
   }
 
