@@ -1027,12 +1027,14 @@ export class RideBookingService {
 
   async getRideHistory(userId: number) {
     try {
+      // Eager load driver, customer, fare_standard
       const rides = await this.rideBookRepo.find({
         where: [
           { customer_id: userId },
           { driver_id: userId },
         ],
         order: { created_at: 'DESC' },
+        relations: ['driver', 'customer', 'fare_standard'],
       });
       // Group rides by status
       const scheduledStatuses = [
@@ -1045,9 +1047,137 @@ export class RideBookingService {
       ];
       const inProgressStatuses = [RideStatus.IN_PROGRESS];
       const completedStatuses = [RideStatus.COMPLETED];
-      const scheduled = rides.filter(r => scheduledStatuses.includes(r.ride_status));
-      const in_progress = rides.filter(r => inProgressStatuses.includes(r.ride_status));
-      const completed = rides.filter(r => completedStatuses.includes(r.ride_status));
+      // Helper to get driver's vehicle
+      const getDriverVehicle = async (driverId: number) => {
+        if (!driverId) return null;
+        const userVehicleRepo = this.dataSource.getRepository('user_vehicles');
+        // Get latest/active vehicle for driver
+        const userVehicle = await userVehicleRepo.findOne({
+          where: { user: { id: driverId } },
+          relations: ['vehicle'],
+          order: { id: 'DESC' },
+        });
+        if (!userVehicle || !userVehicle.vehicle) return null;
+        return userVehicle.vehicle;
+      };
+      // Map rides to detailed summaries
+      const mapRide = async (ride) => {
+        const driver = ride.driver || null;
+        const customer = ride.customer || null;
+        const fare = ride.fare_standard || null;
+        const vehicle = driver ? await getDriverVehicle(driver.id) : null;
+        // Calculate platform fee
+        const platform_fee = (ride.company_fees_amount || 0) + (ride.app_fees_amount || 0);
+        // Waiting charges assumed to be in additional_cost
+        const waiting_charges = ride.additional_cost || 0;
+        // Fetch pickup and dropoff locations
+        const routings = await this.rideRoutingRepo.find({
+          where: { ride_id: ride.id },
+        });
+        const pickup = routings.find(r => r.type === RideLocationType.PICKUP) || null;
+        const dropoff = routings.find(r => r.type === RideLocationType.DROPOFF) || null;
+        let distance_km = null;
+        if (pickup && dropoff) {
+          distance_km = haversineKm(
+            { latitude: pickup.latitude, longitude: pickup.longitude },
+            { latitude: dropoff.latitude, longitude: dropoff.longitude }
+          );
+        }
+        return {
+          summary: {
+            partner_name: driver ? driver.name : null,
+            plate_number: vehicle ? vehicle.registrationNumber : null,
+            booking_time: ride.ride_start_time || ride.created_at,
+            service_type: ride.ride_type,
+          },
+          receipt: {
+            fare: ride.base_fare || 0,
+            waiting_charges,
+            discount: ride.discount || 0,
+            platform_fee,
+            total: ride.total_fare || 0,
+            payment: null, // Placeholder for payment info
+          },
+          locations: {
+            pickup: pickup
+              ? {
+                  address: pickup.address,
+                  latitude: pickup.latitude,
+                  longitude: pickup.longitude,
+                }
+              : null,
+            dropoff: dropoff
+              ? {
+                  address: dropoff.address,
+                  latitude: dropoff.latitude,
+                  longitude: dropoff.longitude,
+                }
+              : null,
+            distance_km,
+          },
+          // Optionally include all other details if needed
+          id: ride.id,
+          ride_no: ride.ride_no,
+          ride_type: ride.ride_type,
+          ride_status: ride.ride_status,
+          booking_type: ride.ride_type,
+          created_at: ride.created_at,
+          updated_at: ride.updated_at,
+          ride_start_time: ride.ride_start_time,
+          ride_end_time: ride.ride_end_time,
+          driver: driver
+            ? {
+                id: driver.id,
+                name: driver.name,
+                phone: driver.phone,
+                email: driver.email,
+                image: driver.image,
+              }
+            : null,
+          customer: customer
+            ? {
+                id: customer.id,
+                name: customer.name,
+                phone: customer.phone,
+                email: customer.email,
+                image: customer.image,
+              }
+            : null,
+          vehicle: vehicle
+            ? {
+                id: vehicle.id,
+                vehicleName: vehicle.vehicleName,
+                registrationNumber: vehicle.registrationNumber,
+                vehiclemodel: vehicle.vehiclemodel,
+                company: vehicle.company,
+                color: vehicle.color,
+                image: vehicle.image,
+              }
+            : null,
+          fare_summary: {
+            base_fare: ride.base_fare,
+            total_fare: ride.total_fare,
+            discount: ride.discount,
+            additional_cost: ride.additional_cost,
+            additional_cost_reason: ride.additional_cost_reason,
+            surcharge_amount: ride.surcharge_amount,
+            company_fees_amount: ride.company_fees_amount,
+            app_fees_amount: ride.app_fees_amount,
+            driver_fees_amount: ride.driver_fees_amount,
+            traffic_delay_amount: ride.traffic_delay_amount,
+          },
+        };
+      };
+      // Await all ride mappings
+      const scheduled = await Promise.all(
+        rides.filter(r => scheduledStatuses.includes(r.ride_status)).map(mapRide)
+      );
+      const in_progress = await Promise.all(
+        rides.filter(r => inProgressStatuses.includes(r.ride_status)).map(mapRide)
+      );
+      const completed = await Promise.all(
+        rides.filter(r => completedStatuses.includes(r.ride_status)).map(mapRide)
+      );
       return {
         success: true,
         message: 'Ride history fetched successfully',
