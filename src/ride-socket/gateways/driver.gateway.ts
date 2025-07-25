@@ -94,6 +94,8 @@ export class DriverGateway
   ) {
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
     if (!driverId) {
+
+    console.log('driver not register ');
       client.emit('offer-error', {
         success: false,
         message: 'Driver not registered',
@@ -102,6 +104,7 @@ export class DriverGateway
     }
 
     if (!data?.requestId) {
+      console.log('missing request id ');
       client.emit('offer-error', {
         success: false,
         message: 'Missing requestId',
@@ -110,6 +113,7 @@ export class DriverGateway
     }
 
     try {
+        console.log('inside try ');
       const result = await this.rideBookingService.offerRide(
         data.requestId,
         driverId,
@@ -152,6 +156,8 @@ export class DriverGateway
         }
       }
     } catch (err: any) {
+
+       console.log('inside catch ');
       client.emit('offer-error', {
         success: false,
         message: err.message || 'Offer failed',
