@@ -1024,6 +1024,43 @@ export class RideBookingService {
       this.handleUnknown(err);
     }
   }
+
+  async getRideHistory(userId: number) {
+    try {
+      const rides = await this.rideBookRepo.find({
+        where: [
+          { customer_id: userId },
+          { driver_id: userId },
+        ],
+        order: { created_at: 'DESC' },
+      });
+      // Group rides by status
+      const scheduledStatuses = [
+        RideStatus.REQUESTED,
+        RideStatus.DRIVER_OFFERED,
+        RideStatus.CUSTOMER_SELECTED,
+        RideStatus.CONFIRMED,
+        RideStatus.DRIVER_EN_ROUTE,
+        RideStatus.ARRIVED,
+      ];
+      const inProgressStatuses = [RideStatus.IN_PROGRESS];
+      const completedStatuses = [RideStatus.COMPLETED];
+      const scheduled = rides.filter(r => scheduledStatuses.includes(r.ride_status));
+      const in_progress = rides.filter(r => inProgressStatuses.includes(r.ride_status));
+      const completed = rides.filter(r => completedStatuses.includes(r.ride_status));
+      return {
+        success: true,
+        message: 'Ride history fetched successfully',
+        data: {
+          scheduled,
+          in_progress,
+          completed,
+        },
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
   // Get request + customer id (minimal object)
   async getRequestWithCustomer(requestId: number): Promise<RideRequest | null> {
     return this.dataSource.getRepository(RideRequest).findOne({

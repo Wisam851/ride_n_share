@@ -90,4 +90,10 @@ export class RideBookingController {
     const role = user.roles.includes('driver') ? 'driver' : 'customer';
     return this.service.cancelRide(id, userId, dto, role);
   }
+
+  @Roles('driver', 'customer')
+  @Get('history')
+  async getRideHistory(@CurrentUser('id') userId: number) {
+    return this.service.getRideHistory(userId);
+  }
 }
