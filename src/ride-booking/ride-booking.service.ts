@@ -1076,7 +1076,7 @@ export class RideBookingService {
         });
         const pickup = routings.find(r => r.type === RideLocationType.PICKUP) || null;
         const dropoff = routings.find(r => r.type === RideLocationType.DROPOFF) || null;
-        let distance_km = null;
+        let distance_km: number | null = null;
         if (pickup && dropoff) {
           distance_km = haversineKm(
             { latitude: pickup.latitude, longitude: pickup.longitude },
