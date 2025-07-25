@@ -86,9 +86,11 @@ export class CustomerGateway
     @MessageBody() data: unknown,
     @ConnectedSocket() client: Socket,
   ) {
+    console.log('REQUEST_RIDE event received ');
     this.logger.log('📨 REQUEST_RIDE event received');
     const customerId = this.socketRegistry.getCustomerIdFromSocket(client.id);
     if (!customerId) {
+      console.log('REQUEST_RIDE event received - customer not registered');
       client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
         message: 'Customer not registered or session expired',
@@ -103,6 +105,7 @@ export class CustomerGateway
       const messages = errors
         .map((err) => (err.constraints ? Object.values(err.constraints) : []))
         .flat();
+        console.log('REQUEST_RIDE event received - validation errors', messages);
       client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
         message: 'Validation error',
@@ -114,8 +117,10 @@ export class CustomerGateway
     // create ride request in DB
     let result;
     try {
+      console.log('REQUEST_RIDE event received - calling service');
       result = await this.rideBookingService.requestRide(dto, customerId);
     } catch (err: any) {
+      console.log('REQUEST_RIDE event received - ride request failed', err.message);
       this.logger.error(`requestRide failed: ${err.message}`);
       client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
