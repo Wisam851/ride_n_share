@@ -18,6 +18,24 @@ import {
 } from 'src/common/enums/ride-booking.enum';
 import { Column } from 'typeorm';
 
+export class RideRoutingInput {
+  @IsNotEmpty()
+  @IsEnum(RideLocationType)
+  type: RideLocationType;
+
+  @IsLatitude()
+  latitude: number;
+
+  @IsLongitude()
+  longitude: number;
+
+  @Column({ nullable: true })
+  address: string;
+
+  @Column()
+  seq: number;
+}
+
 export class RideRequestDto {
   @IsNotEmpty()
   @IsEnum(RideType)
@@ -37,27 +55,12 @@ export class RideRequestDto {
   @ValidateNested({ each: true })
   @Type(() => RideRoutingInput)
   routing: RideRoutingInput[];
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
-export class RideRoutingInput {
-  @IsNotEmpty()
-  @IsEnum(RideLocationType)
-  type: RideLocationType;
-
-  @IsLatitude()
-  latitude: number;
-
-  @IsLongitude()
-  longitude: number;
-
-  @Column({ nullable: true })
-  address: string;
-
-  @Column()
-  seq: number;
-}
-
-// ----------- Driver Offer (Driver → says "I can take it")
 export class DriverOfferDto {
   @IsNumber()
   requestId: number;
@@ -69,14 +72,14 @@ export class DriverOfferDto {
   latitude: number;
 }
 
-// ----------- Customer Confirms (Final Booking)
 export class ConfirmDriverDto {
-  @IsNumber() requestId: number;
-  @IsNumber() driverId: number;
+  @IsNumber()
+  requestId: number;
+
+  @IsNumber()
+  driverId: number;
 }
 
-
-// ----------- For compatibility (Final booking fields)
 export class RideBookingDto {
   @IsNotEmpty()
   @IsEnum(RideType)
@@ -111,6 +114,10 @@ export class RideBookingDto {
   @ValidateNested({ each: true })
   @Type(() => RideRoutingInput)
   routing: RideRoutingInput[];
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
 export class UpdateRideBookingDto {
@@ -161,6 +168,19 @@ export class CalculateFareDto {
 
   @IsNumber()
   ride_timing: number;
+
+  @IsNumber()
+  customer_id: number;
+
+  @IsArray()
+  @ArrayMinSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => RideRoutingInput)
+  routing: RideRoutingInput[];
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
 export class CancelRideDto {
