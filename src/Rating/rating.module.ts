@@ -11,6 +11,7 @@ import { RideBooking } from 'src/ride-booking/entity/ride-booking.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([Rating,User,RideBooking])],
   controllers: [RatingController],
-  providers: [RatingService]
+  providers: [RatingService],
+  exports: [RatingService, TypeOrmModule.forFeature([Rating])],
 })
 export class RatingModule {}
