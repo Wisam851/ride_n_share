@@ -89,6 +89,7 @@ export class RideBookingService {
         message: 'No active fare standard found',
       };
     }
+    
     const fare_id = fareStandard.id;
     const baseFare = Number(fareStandard.price_per_km) * ride_km;
     const surcharge_amount = (fareStandard.sur_charge / 100) * baseFare;
