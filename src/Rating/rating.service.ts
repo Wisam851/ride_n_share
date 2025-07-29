@@ -169,12 +169,24 @@ export class RatingService {
             throw new InternalServerErrorException('Failed to delete the rating');
         }
     }
+
     async calculateCustomerAverageRating(customerId: number): Promise<number> {
         const ratings = await this.ratingRepository.find({
             where: { user_id: customerId },
         });
 
-        if (!ratings.length) return 5.0; // Default fallback rating
+        if (!ratings.length) return 0.0; // Default fallback rating
+
+        const total = ratings.reduce((sum, r) => sum + r.rating, 0);
+        return parseFloat((total / ratings.length).toFixed(1));
+    }
+
+    async calculateDriverAverageRating(driverId: number): Promise<number> {
+        const ratings = await this.ratingRepository.find({
+            where: { driverId: driverId },
+        });
+
+        if (!ratings.length) return 0.0; // Default fallback rating
 
         const total = ratings.reduce((sum, r) => sum + r.rating, 0);
         return parseFloat((total / ratings.length).toFixed(1));
