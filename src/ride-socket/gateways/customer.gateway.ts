@@ -13,6 +13,7 @@ import { Namespace, Socket, Server } from 'socket.io';
 import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { plainToInstance } from 'class-transformer';
+import { RatingService } from 'src/Rating/rating.service';
 import {
   RideBookingDto,
   RideRequestDto,
@@ -22,7 +23,7 @@ import { SocketRegisterService } from '../socket-registry.service';
 import { authenticateSocket } from '../utils/socket-auth.util';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
-import { getRootServer } from '../utils/get-root-server.util';
+import { getRootServer } from '../utils/get-root-server.util';  
 
 @WebSocketGateway({ namespace: 'customer', cors: { origin: '*' } })
 export class CustomerGateway
@@ -35,6 +36,7 @@ export class CustomerGateway
   constructor(
     private readonly socketRegistry: SocketRegisterService,
     private readonly rideBookingService: RideBookingService,
+    private readonly ratingService: RatingService,
   ) {}
 
   afterInit() {
@@ -157,6 +159,11 @@ export class CustomerGateway
     const broadcastPayload = {
       requestId: rideRequest.id,
       customerId,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      customerImage: customer.image,
+      customerRating: await this.ratingService.calculateCustomerAverageRating(customer.id),
+      totalFare: rideRequest.total_fare,
       type: dto.type,
       ride_km: dto.ride_km,
       ride_timing: dto.ride_timing,
