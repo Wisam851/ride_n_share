@@ -282,6 +282,8 @@ export class RideBookingService {
 
       // --- get pickup coords from routing ---
       const pickup = await this.getPickupCoords(queryRunner.manager, requestId);
+      const dropoff = await this.getDropoffCoords(queryRunner.manager, requestId);
+
       // pickup may be null if bad data; we continue but no distance calc
       let distanceKm: number | null = null;
       let etaMin: number | null = null;
@@ -299,6 +301,8 @@ export class RideBookingService {
         driver_lng: dto.longitude,
         pickup_lat: pickup?.latitude ?? null,
         pickup_lng: pickup?.longitude ?? null,
+        dropoff_lat: dropoff?.latitude ?? null,
+        dropoff_lng: dropoff?.longitude ?? null,
         distance_km: distanceKm,
         eta_min: etaMin,
       };
@@ -1236,7 +1240,11 @@ export class RideBookingService {
   private async getPickupCoords(
     manager: EntityManager,
     requestId: number,
-  ): Promise<LatLng | null> {
+  ): Promise<{
+    latitude: number;
+    longitude: number;
+    address: string;
+  } | null> {
     const routingRepo = manager.getRepository(RideRequestRouting);
 
     // First try type = pickup
@@ -1255,8 +1263,42 @@ export class RideBookingService {
     return {
       latitude: Number(pickup.latitude),
       longitude: Number(pickup.longitude),
+      address: pickup.address || '',
     };
   }
+
+
+  private async getDropoffCoords(
+    manager: EntityManager,
+    requestId: number,
+  ): Promise<{
+    latitude: number;
+    longitude: number;
+    address: string;
+  } | null> {
+    const routingRepo = manager.getRepository(RideRequestRouting);
+
+    // First try type = dropoff
+    let dropoff = await routingRepo.findOne({
+      where: { request_id: requestId, type: RideLocationType.DROPOFF },
+    });
+
+    if (!dropoff) {
+      // Fallback to seq = 0
+      dropoff = await routingRepo.findOne({
+        where: { request_id: requestId, seq: 0 },
+      });
+    }
+
+    if (!dropoff) return null;
+    return {
+      latitude: Number(dropoff.latitude),
+      longitude: Number(dropoff.longitude),
+      address: dropoff.address || '',
+    };
+  }
+
+
   getDriverAvgSpeedKmh(): number {
     return Number(process.env.RIDE_DRIVER_AVG_SPEED_KMH ?? 35);
   }
