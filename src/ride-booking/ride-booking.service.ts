@@ -301,8 +301,10 @@ export class RideBookingService {
         driver_lng: dto.longitude,
         pickup_lat: pickup?.latitude ?? null,
         pickup_lng: pickup?.longitude ?? null,
+        pickup_address: pickup?.address ?? null,
         dropoff_lat: dropoff?.latitude ?? null,
         dropoff_lng: dropoff?.longitude ?? null,
+        dropoff_address: dropoff?.address ?? null,
         distance_km: distanceKm,
         eta_min: etaMin,
       };
