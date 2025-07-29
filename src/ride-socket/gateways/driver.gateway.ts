@@ -22,6 +22,7 @@ import { authenticateSocket } from '../utils/socket-auth.util';
 import { getRootServer } from '../utils/get-root-server.util';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
+import { inspect } from 'util';
 
 @WebSocketGateway({ namespace: 'driver', cors: { origin: '*' } })
 export class DriverGateway
@@ -151,8 +152,14 @@ export class DriverGateway
           );
 
           this.logger.log(
-            `📤 Notified customerId=${rideReq.customer_id} about driver offer`,
+            `📤 Notified customerId=${rideReq.customer_id} about driver offer ${result.data?.[0]?.requestId} ${result.data?.[0]?.offers}`,
           );
+
+          console.log('-----------------------------------------------------------------------------');
+          console.log(inspect(result.data, { depth: null, colors: true }));
+
+          this.logger.log(`📤 Sending offer update to customer ${rideReq.customer_id} on socket ${customerRef?.socketId}`);
+
         }
       }
     } catch (err: any) {
