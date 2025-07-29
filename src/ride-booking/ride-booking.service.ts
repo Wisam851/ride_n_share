@@ -72,7 +72,7 @@ export class RideBookingService {
 
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
   private logger = new Logger('DriverGateway');
   private readonly OFFER_LIFETIME_MS = 20_000; // 20s; change via config/env
 
@@ -89,7 +89,7 @@ export class RideBookingService {
         message: 'No active fare standard found',
       };
     }
-    
+
     const fare_id = fareStandard.id;
     const baseFare = Number(fareStandard.price_per_km) * ride_km;
     const surcharge_amount = (fareStandard.sur_charge / 100) * baseFare;
@@ -365,6 +365,11 @@ export class RideBookingService {
 
       await queryRunner.commitTransaction();
 
+      const offerWithDriver = await this.dataSource.getRepository(RideDriverOffer).findOne({
+        where: { id: offer.id },
+        relations: ['driver', 'rideRequest', 'rideRequest.customer'],
+      });
+
       // Post-commit async actions (socket / expiry scheduling)
       // this.scheduleDriverOfferExpiry(offer.id, expiresAt);
       // this.socketGateway.emitDriverOffered({ requestId, driverId, offerId: offer.id });
@@ -372,7 +377,7 @@ export class RideBookingService {
       return {
         success: true,
         message: 'Driver offer recorded.',
-        data: { offer, request: rideRequest },
+        data: { driver: offerWithDriver?.driver, offer, request: rideRequest },
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -1102,17 +1107,17 @@ export class RideBookingService {
           locations: {
             pickup: pickup
               ? {
-                  address: pickup.address,
-                  latitude: pickup.latitude,
-                  longitude: pickup.longitude,
-                }
+                address: pickup.address,
+                latitude: pickup.latitude,
+                longitude: pickup.longitude,
+              }
               : null,
             dropoff: dropoff
               ? {
-                  address: dropoff.address,
-                  latitude: dropoff.latitude,
-                  longitude: dropoff.longitude,
-                }
+                address: dropoff.address,
+                latitude: dropoff.latitude,
+                longitude: dropoff.longitude,
+              }
               : null,
             distance_km,
           },
@@ -1128,32 +1133,32 @@ export class RideBookingService {
           ride_end_time: ride.ride_end_time,
           driver: driver
             ? {
-                id: driver.id,
-                name: driver.name,
-                phone: driver.phone,
-                email: driver.email,
-                image: driver.image,
-              }
+              id: driver.id,
+              name: driver.name,
+              phone: driver.phone,
+              email: driver.email,
+              image: driver.image,
+            }
             : null,
           customer: customer
             ? {
-                id: customer.id,
-                name: customer.name,
-                phone: customer.phone,
-                email: customer.email,
-                image: customer.image,
-              }
+              id: customer.id,
+              name: customer.name,
+              phone: customer.phone,
+              email: customer.email,
+              image: customer.image,
+            }
             : null,
           vehicle: vehicle
             ? {
-                id: vehicle.id,
-                vehicleName: vehicle.vehicleName,
-                registrationNumber: vehicle.registrationNumber,
-                vehiclemodel: vehicle.vehiclemodel,
-                company: vehicle.company,
-                color: vehicle.color,
-                image: vehicle.image,
-              }
+              id: vehicle.id,
+              vehicleName: vehicle.vehicleName,
+              registrationNumber: vehicle.registrationNumber,
+              vehiclemodel: vehicle.vehiclemodel,
+              company: vehicle.company,
+              color: vehicle.color,
+              image: vehicle.image,
+            }
             : null,
           fare_summary: {
             base_fare: ride.base_fare,
