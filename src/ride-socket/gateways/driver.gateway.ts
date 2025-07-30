@@ -183,7 +183,7 @@ export class DriverGateway
   ) {
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
     if (!driverId) {
-      return client.emit('rider-reached', {
+      return client.emit(SOCKET_EVENTS.RIDER_REACHED, {
         success: false,
         message: 'Driver not registered',
       });
@@ -196,7 +196,7 @@ export class DriverGateway
       );
 
       if (ride.success && ride.data) {
-        client.emit('rider-reached', ride);
+        client.emit(SOCKET_EVENTS.RIDER_REACHED, ride);
 
         const customerRef = this.socketRegistry.getCustomerSocket(
           ride.data.customer_id,
@@ -211,14 +211,14 @@ export class DriverGateway
           });
         }
       } else {
-        client.emit('rider-reached', {
+        client.emit(SOCKET_EVENTS.RIDER_REACHED, {
           success: false,
           message: 'Arrival failed',
         });
       }
     } catch (error) {
       this.logger.error('❌ Ride Arrived Error:', error.message);
-      client.emit('rider-reached', {
+      client.emit(SOCKET_EVENTS.RIDER_REACHED, {
         success: false,
         message: error.message || 'Internal server error',
       });
