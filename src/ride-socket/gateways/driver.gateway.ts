@@ -204,7 +204,7 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDER_REACHED, {
+          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
             type: 'arrived',
             rideId: ride.data.id,
             message: 'Your driver has arrived',
@@ -224,6 +224,57 @@ export class DriverGateway
       });
     }
   }
+
+  // @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
+  // @UseGuards(WsRolesGuard)
+  // @WsRoles('driver')
+  // async handleRideStarted(
+  //   @MessageBody() body: { rideId: number },
+  //   @ConnectedSocket() client: Socket,
+  // ) {
+  //   const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
+  //   if (!driverId) {
+  //     return client.emit('rider-started-response', {
+  //       success: false,
+  //       message: 'Driver not registered',
+  //     });
+  //   }
+
+  //   try {
+  //     const ride = await this.rideBookingService.verifyAndStartRide(
+  //       body.rideId,
+  //       driverId,
+  //     );
+
+  //     if (ride.success && ride.data) {
+  //       client.emit('rider-started-response', ride);
+
+  //       const customerRef = this.socketRegistry.getCustomerSocket(
+  //         ride.data.customer_id,
+  //       );
+
+  //       if (customerRef) {
+  //         const customerNs = this.server.server.of('/customer');
+  //         customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+  //           type: 'started',
+  //           rideId: ride.data.id,
+  //           message: 'Your ride has started',
+  //         });
+  //       }
+  //     } else {
+  //       client.emit('rider-started-response', {
+  //         success: false,
+  //         message: 'Could not start ride',
+  //       });
+  //     }
+  //   } catch (error) {
+  //     this.logger.error('❌ Ride Started Error:', error.message);
+  //     client.emit('rider-started-response', {
+  //       success: false,
+  //       message: error.message || 'Internal server error',
+  //     });
+  //   }
+  // }
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
   @UseGuards(WsRolesGuard)
@@ -255,11 +306,14 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit('ride-status-update', {
-            type: 'started',
-            rideId: ride.data.id,
-            message: 'Your ride has started',
-          });
+          customerNs.to(customerRef.socketId).emit(
+            SOCKET_EVENTS.RIDE_STATUS_UPDATE,
+            {
+              type: 'started',
+              rideId: ride.data.id,
+              message: 'Your ride has started',
+            },
+          );
         }
       } else {
         client.emit('rider-started-response', {
@@ -275,6 +329,7 @@ export class DriverGateway
       });
     }
   }
+
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_COMPLETED)
   @UseGuards(WsRolesGuard)
@@ -306,7 +361,7 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit('ride-status-update', {
+          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
             type: 'completed',
             rideId: ride.data.ride_id,
             message: 'Your ride is complete',
