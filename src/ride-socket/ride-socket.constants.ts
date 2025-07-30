@@ -15,12 +15,12 @@ export const SOCKET_EVENTS = {
 
   // ride lifecycle (after booking)
   RIDE_ARRIVED: 'ride-arrived',
+  RIDER_REACHED: 'rider-reached', // optional generic push
   RIDE_STARTED: 'ride-started',
   RIDE_COMPLETED: 'ride-completed',
   RIDE_CANCELLED: 'ride-cancelled',
   RIDE_STATUS_UPDATE: 'ride-status-update', // optional generic push
 
-  RIDER_REACHED: 'rider-reached', // optional generic push
   
   RIDE_ERROR: 'ride-error', // generic error during ride lifecycle
   OFFER_SUCCESS: 'offer-success',
