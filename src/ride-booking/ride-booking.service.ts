@@ -738,7 +738,7 @@ export class RideBookingService {
             }
           }
 
-          const otp = this.generateOtp(6);
+          const otp = this.generateOtp(4);
 
           const booking = queryRunner.manager.create(RideBooking, {
             ride_type: rideRequest.ride_type,
