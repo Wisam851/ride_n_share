@@ -155,8 +155,9 @@ export class DriverGateway
             `📤 Notified customerId=${rideReq.customer_id} about driver offer ${result.data?.[0]?.requestId} ${result.data?.[0]?.offers}`,
           );
 
-          console.log('-----------------------------------------------------------------------------');
+          console.log('-------------');
           console.log(inspect(result.data, { depth: null, colors: true }));
+          console.log('-----------------------------------------------------------------------------');
 
           this.logger.log(`📤 Sending offer update to customer ${rideReq.customer_id} on socket ${customerRef?.socketId}`);
 
