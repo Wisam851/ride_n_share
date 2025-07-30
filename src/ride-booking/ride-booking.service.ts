@@ -647,244 +647,257 @@ export class RideBookingService {
   // }
 
   async confirmDriver(requestId: number, driverId: number, customerId: number) {
-        const queryRunner = this.dataSource.createQueryRunner();
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
-        const usersQuery = queryRunner.manager.getRepository(User);
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      const usersQuery = queryRunner.manager.getRepository(User);
 
-        try {
-          const customer = await usersQuery.findOne({ where: { id: customerId } });
-          if (!customer) throw new NotFoundException('Customer not found');
+      try {
+        const customer = await usersQuery.findOne({ where: { id: customerId } });
+        if (!customer) throw new NotFoundException('Customer not found');
 
-          const driver = await usersQuery.findOne({ where: { id: driverId } });
-          if (!driver) throw new NotFoundException('Driver not found');
+        const driver = await usersQuery.findOne({ where: { id: driverId } });
+        if (!driver) throw new NotFoundException('Driver not found');
 
-          if (driver.isOnline !== 1) {
-            throw new BadRequestException('Driver is offline');
-          }
-
-          const fare_standard = await queryRunner.manager.findOne(RideFareStandard, {
-            where: { status: 1 },
-          });
-          if (!fare_standard) {
-            throw new BadRequestException('No active fare standard found');
-          }
-
-          const rideRequest = await queryRunner.manager
-            .getRepository(RideRequest)
-            .createQueryBuilder('req')
-            .where('req.id = :id', { id: requestId })
-            .setLock('pessimistic_write')
-            .getOne();
-
-          if (!rideRequest) throw new NotFoundException('Ride request not found');
-          if (rideRequest.customer_id !== customerId) {
-            throw new ForbiddenException('Access denied');
-          }
-          if (
-            rideRequest.status !== RideStatus.REQUESTED &&
-            rideRequest.status !== RideStatus.DRIVER_OFFERED
-          ) {
-            throw new BadRequestException('Request cannot be confirmed.');
-          }
-
-          if (rideRequest.expires_at && rideRequest.expires_at <= new Date()) {
-            throw new BadRequestException('Ride request expired.');
-          }
-
-          const expected = await this.calculateFare({
-            ride_km: rideRequest.ride_km,
-            ride_timing: rideRequest.ride_timing,
-          });
-          const expectedFare = expected.data;
-          if (!expectedFare) {
-            throw new BadRequestException('Failed to calculate expected fare');
-          }
-
-          const expectedTotal = Number(expectedFare.total_fare);
-          const expectedBase = Number(expectedFare.base_fare);
-          const requestTotal = Number(rideRequest.total_fare);
-          const requestBase = Number(rideRequest.base_fare);
-
-          if (expectedTotal !== requestTotal || expectedBase !== requestBase) {
-            throw new BadRequestException('The fare did not match');
-          }
-
-          const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
-          const offers = await offerRepo
-            .createQueryBuilder('o')
-            .where('o.request_id = :id', { id: requestId })
-            .setLock('pessimistic_write')
-            .getMany();
-
-          const selectedOffer = offers.find((o) => o.driver_id === driverId);
-          if (!selectedOffer) {
-            throw new BadRequestException('Driver did not offer for this request.');
-          }
-          if (selectedOffer.status !== RideDriverOfferStatus.ACTIVE) {
-            throw new BadRequestException('Offer is no longer active.');
-          }
-
-          selectedOffer.status = RideDriverOfferStatus.SELECTED;
-          await offerRepo.save(selectedOffer);
-
-          for (const offer of offers) {
-            if (
-              offer.id !== selectedOffer.id &&
-              offer.status === RideDriverOfferStatus.ACTIVE
-            ) {
-              offer.status = RideDriverOfferStatus.REJECTED;
-              await offerRepo.save(offer);
-            }
-          }
-
-          const otp = this.generateOtp(4);
-
-          const booking = queryRunner.manager.create(RideBooking, {
-            ride_type: rideRequest.ride_type,
-            customer_id: rideRequest.customer_id,
-            driver_id: driverId,
-            fare_standard_id: rideRequest.fare_standard_id,
-            ride_km: rideRequest.ride_km,
-            ride_timing: rideRequest.ride_timing,
-            base_fare: expectedFare.base_fare,
-            total_fare: expectedFare.total_fare,
-            discount: expectedFare.discount,
-            additional_cost: expectedFare.additional_cost,
-            surcharge_amount: expectedFare.surcharge_amount,
-            company_fees_amount: expectedFare.company_fees_amount,
-            app_fees_amount: expectedFare.app_fees_amount,
-            driver_fees_amount: expectedFare.driver_fees_amount,
-            ride_status: RideStatus.CONFIRMED,
-            otp_code: otp,
-            created_by: rideRequest.customer_id,
-          });
-          await queryRunner.manager.save(booking);
-
-          const reqRouting = await queryRunner.manager.find(RideRequestRouting, {
-            where: { request_id: requestId },
-            order: { seq: 'ASC' },
-          });
-
-          const routingEntities = reqRouting.map((r) =>
-            queryRunner.manager.create(RideRouting, {
-              ride_id: booking.id,
-              type: r.type,
-              latitude: r.latitude,
-              longitude: r.longitude,
-              address: r.address,
-              created_by: customerId,
-            }),
-          );
-          await queryRunner.manager.save(RideRouting, routingEntities);
-
-          const driverMeta = selectedOffer.meta_json || {};
-          const driverLat = driverMeta.driver_lat || driverMeta.latitude;
-          const driverLng = driverMeta.driver_lng || driverMeta.longitude;
-
-          if (!driverLat || !driverLng) {
-            throw new BadRequestException('Driver location missing in offer meta.');
-          }
-
-          const driverRouting = queryRunner.manager.create(RideRouting, {
-            ride_id: booking.id,
-            type: RideLocationType.DRIVER_LOCATION,
-            latitude: driverLat,
-            longitude: driverLng,
-            address: driverMeta.address || 'Driver current location',
-            created_by: driverId,
-          });
-          await queryRunner.manager.save(driverRouting);
-
-          rideRequest.status = RideStatus.CONFIRMED;
-          rideRequest.confirmed_driver_id = driverId;
-          rideRequest.confirmed_booking_id = booking.id;
-          await queryRunner.manager.save(rideRequest);
-
-          const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
-          const confirmEvents = [
-            eventRepo.create({
-              request_id: rideRequest.id,
-              event_type: 'customer_selected_driver',
-              actor_type: RideEventActorType.CUSTOMER,
-              actor_id: customerId,
-              payload_json: { driverId },
-            }),
-            eventRepo.create({
-              request_id: rideRequest.id,
-              event_type: 'request_confirmed',
-              actor_type: RideEventActorType.SYSTEM,
-              payload_json: { bookingId: booking.id },
-            }),
-          ];
-          await eventRepo.save(confirmEvents);
-
-          await this.createRideLog(
-            queryRunner.manager,
-            booking,
-            RideStatus.CONFIRMED,
-            RideBookingNotes.CONFIRMED,
-            driverId,
-          );
-
-          // ⭐ Get rating of customer and driver
-          const ratingRepo = queryRunner.manager.getRepository(Rating);
-
-          const getUserRating = async (userId: number): Promise<number> => {
-            const ratings = await ratingRepo.find({ where: { user_id: userId } });
-            if (!ratings.length) return 0;
-            const average =
-              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / ratings.length;
-            return parseFloat(average.toFixed(1));
-          };
-
-          const customer_rating = await getUserRating(customerId);
-          const driver_rating = await getUserRating(driverId);
-
-          const allRouting = await queryRunner.manager.find(RideRouting, {
-            where: { ride_id: booking.id },
-            order: { id: 'ASC' },
-          });
-
-          const pickup = allRouting.find((r) => r.type === RideLocationType.PICKUP);
-          const dropoff = allRouting.find(
-            (r) => r.type === RideLocationType.DROPOFF,
-          );
-
-          await queryRunner.commitTransaction();
-
-          return {
-            success: true,
-            bookingId: booking.id,
-            data: {
-              ride: booking,
-              fare: expectedFare,
-              otp: booking.otp_code,
-              pickup,
-              dropoff,
-              customer: {
-                ...customer,
-                rating: customer_rating,
-                otp: booking.otp_code,
-              },
-              driver: {
-                ...driver,
-                rating: driver_rating,
-                otp: booking.otp_code,
-                coordinates: {
-                  latitude: driverLat,
-                  longitude: driverLng,
-                },
-              },
-            },
-          };
-        } catch (err) {
-          await queryRunner.rollbackTransaction();
-          this.handleUnknown(err);
-        } finally {
-          await queryRunner.release();
+        if (driver.isOnline !== 1) {
+          throw new BadRequestException('Driver is offline');
         }
+
+        const fare_standard = await queryRunner.manager.findOne(RideFareStandard, {
+          where: { status: 1 },
+        });
+        if (!fare_standard) {
+          throw new BadRequestException('No active fare standard found');
+        }
+
+        const rideRequest = await queryRunner.manager
+          .getRepository(RideRequest)
+          .createQueryBuilder('req')
+          .where('req.id = :id', { id: requestId })
+          .setLock('pessimistic_write')
+          .getOne();
+
+        if (!rideRequest) throw new NotFoundException('Ride request not found');
+        if (rideRequest.customer_id !== customerId) {
+          throw new ForbiddenException('Access denied');
+        }
+        if (
+          rideRequest.status !== RideStatus.REQUESTED &&
+          rideRequest.status !== RideStatus.DRIVER_OFFERED
+        ) {
+          throw new BadRequestException('Request cannot be confirmed.');
+        }
+
+        if (rideRequest.expires_at && rideRequest.expires_at <= new Date()) {
+          throw new BadRequestException('Ride request expired.');
+        }
+
+        const expected = await this.calculateFare({
+          ride_km: rideRequest.ride_km,
+          ride_timing: rideRequest.ride_timing,
+        });
+        const expectedFare = expected.data;
+        if (!expectedFare) {
+          throw new BadRequestException('Failed to calculate expected fare');
+        }
+
+        const expectedTotal = Number(expectedFare.total_fare);
+        const expectedBase = Number(expectedFare.base_fare);
+        const requestTotal = Number(rideRequest.total_fare);
+        const requestBase = Number(rideRequest.base_fare);
+
+        if (expectedTotal !== requestTotal || expectedBase !== requestBase) {
+          throw new BadRequestException('The fare did not match');
+        }
+
+        const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
+        const offers = await offerRepo
+          .createQueryBuilder('o')
+          .where('o.request_id = :id', { id: requestId })
+          .setLock('pessimistic_write')
+          .getMany();
+
+        const selectedOffer = offers.find((o) => o.driver_id === driverId);
+        if (!selectedOffer) {
+          throw new BadRequestException('Driver did not offer for this request.');
+        }
+        if (selectedOffer.status !== RideDriverOfferStatus.ACTIVE) {
+          throw new BadRequestException('Offer is no longer active.');
+        }
+
+        selectedOffer.status = RideDriverOfferStatus.SELECTED;
+        await offerRepo.save(selectedOffer);
+
+        for (const offer of offers) {
+          if (
+            offer.id !== selectedOffer.id &&
+            offer.status === RideDriverOfferStatus.ACTIVE
+          ) {
+            offer.status = RideDriverOfferStatus.REJECTED;
+            await offerRepo.save(offer);
+          }
+        }
+
+        const otp = this.generateOtp(6);
+
+        const booking = queryRunner.manager.create(RideBooking, {
+          ride_type: rideRequest.ride_type,
+          customer_id: rideRequest.customer_id,
+          driver_id: driverId,
+          fare_standard_id: rideRequest.fare_standard_id,
+          ride_km: rideRequest.ride_km,
+          ride_timing: rideRequest.ride_timing,
+          base_fare: expectedFare.base_fare,
+          total_fare: expectedFare.total_fare,
+          discount: expectedFare.discount,
+          additional_cost: expectedFare.additional_cost,
+          surcharge_amount: expectedFare.surcharge_amount,
+          company_fees_amount: expectedFare.company_fees_amount,
+          app_fees_amount: expectedFare.app_fees_amount,
+          driver_fees_amount: expectedFare.driver_fees_amount,
+          ride_status: RideStatus.CONFIRMED,
+          otp_code: otp,
+          created_by: rideRequest.customer_id,
+        });
+        await queryRunner.manager.save(booking);
+
+        const reqRouting = await queryRunner.manager.find(RideRequestRouting, {
+          where: { request_id: requestId },
+          order: { seq: 'ASC' },
+        });
+
+        const routingEntities = reqRouting.map((r) =>
+          queryRunner.manager.create(RideRouting, {
+            ride_id: booking.id,
+            type: r.type,
+            latitude: r.latitude,
+            longitude: r.longitude,
+            address: r.address,
+            created_by: customerId,
+          }),
+        );
+        await queryRunner.manager.save(RideRouting, routingEntities);
+
+        const driverMeta = selectedOffer.meta_json || {};
+        const driverLat = driverMeta.driver_lat ?? driverMeta.latitude ?? null;
+        const driverLng = driverMeta.driver_lng ?? driverMeta.longitude ?? null;
+
+        if (!driverLat || !driverLng) {
+          throw new BadRequestException('Driver location missing in offer meta.');
+        }
+
+        const driverRouting = queryRunner.manager.create(RideRouting, {
+          ride_id: booking.id,
+          type: RideLocationType.DRIVER_LOCATION,
+          latitude: driverLat,
+          longitude: driverLng,
+          address: driverMeta.address || 'Driver current location',
+          created_by: driverId,
+        });
+        await queryRunner.manager.save(driverRouting);
+
+        rideRequest.status = RideStatus.CONFIRMED;
+        rideRequest.confirmed_driver_id = driverId;
+        rideRequest.confirmed_booking_id = booking.id;
+        await queryRunner.manager.save(rideRequest);
+
+        const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
+        const confirmEvents = [
+          eventRepo.create({
+            request_id: rideRequest.id,
+            event_type: 'customer_selected_driver',
+            actor_type: RideEventActorType.CUSTOMER,
+            actor_id: customerId,
+            payload_json: { driverId },
+          }),
+          eventRepo.create({
+            request_id: rideRequest.id,
+            event_type: 'request_confirmed',
+            actor_type: RideEventActorType.SYSTEM,
+            payload_json: { bookingId: booking.id },
+          }),
+        ];
+        await eventRepo.save(confirmEvents);
+
+        await this.createRideLog(
+          queryRunner.manager,
+          booking,
+          RideStatus.CONFIRMED,
+          RideBookingNotes.CONFIRMED,
+          driverId,
+        );
+
+        // ⭐ Rating stats
+        const ratingRepo = queryRunner.manager.getRepository(Rating);
+        const getUserRatingStats = async (
+          userId: number,
+        ): Promise<{ average: number; count: number }> => {
+          const ratings = await ratingRepo.find({ where: { user_id: userId } });
+          const count = ratings.length;
+          const average =
+            count === 0
+              ? 0
+              : parseFloat(
+                  (
+                    ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+                  ).toFixed(1),
+                );
+          return { average, count };
+        };
+
+        const customerRating = await getUserRatingStats(customerId);
+        const driverRating = await getUserRatingStats(driverId);
+
+        const allRouting = await queryRunner.manager.find(RideRouting, {
+          where: { ride_id: booking.id },
+          order: { id: 'ASC' },
+        });
+
+        const pickup = allRouting.find((r) => r.type === RideLocationType.PICKUP);
+        const dropoff = allRouting.find(
+          (r) => r.type === RideLocationType.DROPOFF,
+        );
+
+        await queryRunner.commitTransaction();
+
+        return {
+          success: true,
+          bookingId: booking.id,
+          data: {
+            ride: booking,
+            fare: expectedFare,
+            otp: booking.otp_code,
+            pickup,
+            dropoff,
+            customer: {
+              ...customer,
+              rating: customerRating.average,
+              rating_count: customerRating.count,
+              otp: booking.otp_code,
+            },
+            driver: {
+              ...driver,
+              rating: driverRating.average,
+              rating_count: driverRating.count,
+              otp: booking.otp_code,
+              coordinates:
+                driverLat && driverLng
+                  ? {
+                      latitude: driverLat,
+                      longitude: driverLng,
+                    }
+                  : null,
+            },
+          },
+        };
+      } catch (err) {
+        await queryRunner.rollbackTransaction();
+        this.handleUnknown(err);
+      } finally {
+        await queryRunner.release();
       }
+    }
+
 
 
 
