@@ -204,7 +204,7 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit('ride-status-update', {
+          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDER_REACHED, {
             type: 'arrived',
             rideId: ride.data.id,
             message: 'Your driver has arrived',
