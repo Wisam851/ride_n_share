@@ -113,7 +113,7 @@ export class UserAuthService {
       }
 
       const user = await this.userRepository.findOne({
-        where: { email: email.toLowerCase().trim() },
+        where: { email: email },
       });
 
       if (!user) {

@@ -69,98 +69,85 @@ export class RatingService {
       );
     }
   }
+
   async rateToCustomer(createRatingDto: CreateRatingDto) {
-    try {
-      const { userId, rideId, remarks, rating } = createRatingDto;
+    const { userId, rideId, remarks, rating } = createRatingDto;
 
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      const Ride = await this.RideBookingRepository.findOne({
-        where: { id: rideId },
-      });
-      if (!Ride) {
-        throw new NotFoundException('Ride nor found');
-      }
-
-      // Prevent duplicate rating for the same ride
-      const existing = await this.ratingRepository.findOne({
-        where: { driverId: userId, rideId },
-      });
-      if (existing) {
-        throw new BadRequestException('You have already rated this ride');
-      }
-
-      const newRating = this.ratingRepository.create({
-        rideId,
-        remarks,
-        rating,
-        // user,
-        user_id: Ride.customer_id,
-        // driverId: null, // Get driver from ride
-      });
-      const saved = await this.ratingRepository.save(newRating);
-
-      return {
-        success: true,
-        message: 'Rating created successfully',
-        data: saved,
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to create rating',
-        error.message,
-      );
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    const ride = await this.RideBookingRepository.findOne({
+      where: { id: rideId },
+    });
+    if (!ride) {
+      throw new NotFoundException('Ride not found');
+    }
+
+    const existing = await this.ratingRepository.findOne({
+      where: { driverId: userId, rideId },
+    });
+    if (existing) {
+      throw new BadRequestException('You have already rated this ride');
+    }
+
+    const newRating = this.ratingRepository.create({
+      rideId,
+      remarks,
+      rating,
+      user_id: ride.customer_id, // customer is the recipient
+      driverId: userId, // driver is rating the customer
+    });
+
+    const saved = await this.ratingRepository.save(newRating);
+
+    return {
+      success: true,
+      message: 'Rating created successfully',
+      data: saved,
+    };
   }
+
   async rateToDriver(createRatingDto: CreateRatingDto) {
-    try {
-      const { userId, rideId, remarks, rating } = createRatingDto;
+    const { userId, rideId, remarks, rating } = createRatingDto;
 
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      const Ride = await this.RideBookingRepository.findOne({
-        where: { id: rideId },
-      });
-      if (!Ride) {
-        throw new NotFoundException('Ride nor found');
-      }
-
-      // Prevent duplicate rating for the same ride
-      const existing = await this.ratingRepository.findOne({
-        where: { user_id: userId, rideId },
-      });
-      if (existing) {
-        throw new BadRequestException('You have already rated this ride');
-      }
-
-      const newRating = this.ratingRepository.create({
-        rideId,
-        remarks,
-        rating,
-        // user,
-        // user_id: null,
-        driverId: Ride.driver_id, // Get driver from ride
-      });
-      const saved = await this.ratingRepository.save(newRating);
-
-      return {
-        success: true,
-        message: 'Rating created successfully',
-        data: saved,
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to create rating',
-        error.message,
-      );
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    const ride = await this.RideBookingRepository.findOne({
+      where: { id: rideId },
+    });
+    if (!ride) {
+      throw new NotFoundException('Ride not found');
+    }
+
+    const existing = await this.ratingRepository.findOne({
+      where: { user_id: userId, rideId },
+    });
+    if (existing) {
+      throw new BadRequestException('You have already rated this ride');
+    }
+
+    const newRating = this.ratingRepository.create({
+      rideId,
+      remarks,
+      rating,
+      user_id: userId, // customer is rating
+      driverId: ride.driver_id, // driver is the recipient
+    });
+
+    const saved = await this.ratingRepository.save(newRating);
+
+    return {
+      success: true,
+      message: 'Rating created successfully',
+      data: saved,
+    };
   }
+
   async getAllRatings(userId: number) {
     try {
       const ratings = await this.ratingRepository.find({

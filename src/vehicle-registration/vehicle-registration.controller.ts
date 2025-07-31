@@ -17,17 +17,21 @@ import {
   CreateVehicleRegistrationDto,
   UpdateVehicleRegistrationDto,
 } from './dtos/vehicle-registration.dto';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { inspect } from 'util';
 
 @Controller('vehicle-registrations')
 export class VehicleRegistrationController {
   constructor(private readonly vehicleService: VehicleRegistrationService) {}
 
+  @Roles('driver')
   @Post('store')
   @UseInterceptors(FileInterceptor('image', multerConfig('uploads')))
   create(
     @Body() dto: CreateVehicleRegistrationDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    console.table(inspect(dto));
     const image = file ? file.filename : null;
     if (!image) {
       throw new Error('Image file is required');
