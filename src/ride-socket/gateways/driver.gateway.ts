@@ -225,57 +225,6 @@ export class DriverGateway
     }
   }
 
-  // @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
-  // @UseGuards(WsRolesGuard)
-  // @WsRoles('driver')
-  // async handleRideStarted(
-  //   @MessageBody() body: { rideId: number },
-  //   @ConnectedSocket() client: Socket,
-  // ) {
-  //   const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
-  //   if (!driverId) {
-  //     return client.emit('rider-started-response', {
-  //       success: false,
-  //       message: 'Driver not registered',
-  //     });
-  //   }
-
-  //   try {
-  //     const ride = await this.rideBookingService.verifyAndStartRide(
-  //       body.rideId,
-  //       driverId,
-  //     );
-
-  //     if (ride.success && ride.data) {
-  //       client.emit('rider-started-response', ride);
-
-  //       const customerRef = this.socketRegistry.getCustomerSocket(
-  //         ride.data.customer_id,
-  //       );
-
-  //       if (customerRef) {
-  //         const customerNs = this.server.server.of('/customer');
-  //         customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
-  //           type: 'started',
-  //           rideId: ride.data.id,
-  //           message: 'Your ride has started',
-  //         });
-  //       }
-  //     } else {
-  //       client.emit('rider-started-response', {
-  //         success: false,
-  //         message: 'Could not start ride',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     this.logger.error('❌ Ride Started Error:', error.message);
-  //     client.emit('rider-started-response', {
-  //       success: false,
-  //       message: error.message || 'Internal server error',
-  //     });
-  //   }
-  // }
-
   @SubscribeMessage(SOCKET_EVENTS.RIDE_STARTED)
   @UseGuards(WsRolesGuard)
   @WsRoles('driver')
@@ -306,14 +255,11 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit(
-            SOCKET_EVENTS.RIDE_STATUS_UPDATE,
-            {
-              type: 'started',
-              rideId: ride.data.id,
-              message: 'Your ride has started',
-            },
-          );
+          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+            type: 'started',
+            rideId: ride.data.id,
+            message: 'Your ride has started',
+          });
         }
       } else {
         client.emit('rider-started-response', {
@@ -330,9 +276,53 @@ export class DriverGateway
     }
   }
 
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_SUMMARY)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('driver')
+  async handleRideSummary(
+    @MessageBody() body: { rideId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (!body?.rideId || typeof body.rideId !== 'number') {
+      return client.emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
+        success: false,
+        message: 'Invalid or missing rideId',
+      });
+    }
+
+    try {
+      console.log('Fetching ride summary for rideId:', body.rideId);
+      const rideSummary = await this.rideBookingService.getRideSummary(body.rideId);
+
+      console.log('-----------------------------------------------------------------------------');
+      console.log('Ride Summary:', rideSummary);
+      console.log('-----------------------------------------------------------------------------');
+
+      const customerSocket = this.socketRegistry.getCustomerSocket(rideSummary.customer.id);
+      if (customerSocket) {
+        const customerNs = this.server.server.of('/customer');
+        customerNs.to(customerSocket.socketId).emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
+          success: true,
+          data: rideSummary,
+        });
+      }
+
+      return client.emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
+        success: true,
+        data: rideSummary,
+      });
+    } catch (err) {
+      this.logger.error('❌ Ride Summary Error:', err.message);
+
+      return client.emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
+        success: false,
+        message: err.message,
+      });
+    }
+  }
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_COMPLETED)
-  @UseGuards(WsRolesGuard)
+  @UseGuards(WsRolesGuard)                            
   @WsRoles('driver')
   async handleRideCompleted(
     @MessageBody() body: { rideId: number },
@@ -381,4 +371,62 @@ export class DriverGateway
       });
     }
   }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_CANCELLED)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('driver', 'customer') // ✅ Allow both
+  async handleRideCancelled(
+    @MessageBody() body: { rideId: number; reason: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('Handling ride cancellation request:', body);
+    const userInfo = this.socketRegistry.getUserFromSocket(client.id);
+    const userRole = userInfo?.role;
+    const userId = userInfo?.userId;
+
+    if (!userId || !userRole) {
+      return client.emit('ride-cancelled-response', {
+        success: false,
+        message: 'User not identified in socket registry',
+      });
+    }
+
+    try {
+      console.log(`Cancelling ride ${body.rideId} for user ${userId} (${userRole}) with reason: ${body.reason}`);
+      const result = await this.rideBookingService.cancelRide(
+        body.rideId,
+        userId,
+        { reason: body.reason },
+        userRole, // 🔁 dynamic
+      );
+
+      client.emit('ride-cancelled-response', result);
+
+      // Notify the opposite party
+      const targetRef =
+        userRole === 'driver'
+          ? this.socketRegistry.getCustomerSocket(result.data.customer_id)
+          : this.socketRegistry.getDriverSocket(result.data.driver_id);
+
+      if (targetRef) {
+        const targetNs = this.server.server.of(
+          userRole === 'driver' ? '/customer' : '/driver',
+        );
+        console.log(`Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`);
+        targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+          type: 'cancelled',
+          rideId: body.rideId,
+          message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
+        });
+      }
+    } catch (err) {
+      this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);
+      client.emit('ride-cancelled-response', {
+        success: false,
+        message: err.message || 'Cancellation failed',
+      });
+    }
+  }
+
+
 }
