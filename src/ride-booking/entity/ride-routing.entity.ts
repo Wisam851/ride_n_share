@@ -18,7 +18,7 @@ export class RideRouting {
   @Column()
   ride_id: number;
 
-  @ManyToOne(() => RideBooking, { onDelete: 'CASCADE' })
+  @ManyToOne(() => RideBooking, (ride) => ride.routing, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'ride_id' })
   ride: RideBooking;
 
