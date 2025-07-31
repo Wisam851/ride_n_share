@@ -51,7 +51,7 @@ import { Rating } from 'src/Rating/entity/rating.entity';
 export class RideBookingService {
   private rideRequests = new Map<number, RideRequestMem>();
   private requestCounter = 1;
-  verifyAndStartRide: any;
+  // verifyAndStartRide: any;
   constructor(
     @InjectRepository(RideBooking)
     private readonly rideBookRepo: Repository<RideBooking>,
@@ -76,6 +76,42 @@ export class RideBookingService {
   ) { }
   private logger = new Logger('DriverGateway');
   private readonly OFFER_LIFETIME_MS = 20_000; // 20s; change via config/env
+
+  async verifyAndStartRide(rideId: number, driverId: number) {
+    const ride = await this.rideBookRepo.findOne({
+      where: { id: rideId },
+    });
+
+    if (!ride) {
+      throw new NotFoundException('Ride not found');
+    }
+
+    if (ride.driver_id !== driverId) {
+      throw new ForbiddenException('You are not the assigned driver for this ride');
+    }
+
+    // ✅ Transition validation (instead of hardcoded check)
+    this.assertTransition(ride.ride_status, RideStatus.STARTED);
+
+    ride.ride_status = RideStatus.STARTED;
+    ride.ride_start_time = new Date();
+
+    await this.rideBookRepo.save(ride);
+
+    await this.createRideLog(
+      this.dataSource.manager,
+      ride,
+      RideStatus.STARTED,
+      'Ride started by driver',
+      driverId,
+    );
+
+    return {
+      success: true,
+      message: 'Ride started successfully',
+      data: ride,
+    };
+  }
 
   async calculateFare(dto: CalculateFareDto) {
     const { ride_km, ride_timing } = dto;
@@ -738,7 +774,7 @@ export class RideBookingService {
           }
         }
 
-        const otp = this.generateOtp(6);
+        const otp = this.generateOtp(4);
 
         const booking = queryRunner.manager.create(RideBooking, {
           ride_type: rideRequest.ride_type,
@@ -897,10 +933,7 @@ export class RideBookingService {
         await queryRunner.release();
       }
     }
-
-
-
-
+    
   /** Fare calculation placeholder (reuse your existing method) */
   async arrivedRide(rideId: number, driverId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -1037,6 +1070,7 @@ export class RideBookingService {
       const updated = await this.rideBookRepo.findOne({
         where: { id: ride.id },
       });
+      console.log('Ride started:', updated);
       return {
         success: true,
         message: 'Ride started.',
@@ -1057,26 +1091,45 @@ export class RideBookingService {
 
     try {
       const manager = queryRunner.manager;
-      const ride = await this.loadRideForUpdate(manager, rideId, [
-        'fare_standard',
-      ]);
 
-      if (ride.ride_status !== RideStatus.IN_PROGRESS) {
-        throw new BadRequestException('Ride is not in progress.');
+      // STEP 1: Lock main row
+      const ride = await manager
+        .createQueryBuilder(RideBooking, 'ride')
+        .where('ride.id = :rideId', { rideId })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (!ride) {
+        throw new NotFoundException('Ride not found.');
+      }
+
+      // STEP 2: Load fare_standard separately to avoid JOIN locking error
+      if (ride.fare_standard_id) {
+        const fareStandard = await manager.findOne(RideFareStandard, {
+          where: { id: ride.fare_standard_id },
+        });
+        if (fareStandard) {
+          ride.fare_standard = fareStandard;
+        }
+      }
+
+      // STEP 3: Ride state validations
+      if (![RideStatus.IN_PROGRESS, RideStatus.STARTED].includes(ride.ride_status)) {
+        throw new BadRequestException(`Ride is not in progress. Current status: ${ride.ride_status}`);
       }
 
       if (ride.driver_id !== driverId) {
-        throw new BadRequestException('Unauthorized ride completion.');
+        throw new ForbiddenException('Unauthorized ride completion.');
       }
+
       if (!ride.ride_start_time) {
         throw new InternalServerErrorException('Start time missing on ride.');
       }
 
+      // STEP 4: Delay & fare calculation
       const now = new Date();
       const start = new Date(ride.ride_start_time);
-      const actualMinutes = Math.ceil(
-        (now.getTime() - start.getTime()) / 60000,
-      );
+      const actualMinutes = Math.ceil((now.getTime() - start.getTime()) / 60000);
       const allowedMinutes = ride.ride_timing ?? 0;
       const delayMinutes = Math.max(0, actualMinutes - allowedMinutes);
 
@@ -1088,24 +1141,20 @@ export class RideBookingService {
         fareStandard?.traffic_delay_charge
       ) {
         const baseFare = Number(ride.base_fare ?? 0);
-        trafficDelayAmount =
-          (Number(fareStandard.traffic_delay_charge) / 100) * baseFare;
+        trafficDelayAmount = (Number(fareStandard.traffic_delay_charge) / 100) * baseFare;
       }
 
-      if (trafficDelayAmount > 0) {
-        ride.total_fare = Number(ride.total_fare ?? 0) + trafficDelayAmount;
-        ride.traffic_delay_amount = trafficDelayAmount;
-        ride.ride_delay_time = delayMinutes;
-      } else {
-        ride.ride_delay_time = delayMinutes;
-        ride.traffic_delay_amount = 0;
-      }
+      ride.ride_delay_time = delayMinutes;
+      ride.traffic_delay_amount = trafficDelayAmount;
+      ride.total_fare = Number(ride.total_fare ?? 0) + trafficDelayAmount;
 
+      // STEP 5: Complete the ride
       ride.ride_status = RideStatus.COMPLETED;
       ride.ride_end_time = now;
 
       await manager.save(ride);
 
+      // STEP 6: Log the ride
       await this.createRideLog(
         manager,
         ride,
@@ -1130,83 +1179,109 @@ export class RideBookingService {
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      this.handleUnknown(err);
+      this.logger.error(`❌ Error completing ride: ${err.message}`);
+      throw err;
     } finally {
       await queryRunner.release();
     }
   }
+
 
   // ride-booking.service.ts
   async cancelRide(
-    rideId: number,
-    userId: number,
-    dto: CancelRideDto,
-    role: 'customer' | 'driver',
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  rideId: number,
+  userId: number,
+  dto: CancelRideDto,
+  role: 'customer' | 'driver',
+) {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
-    try {
-      const manager = queryRunner.manager;
-      const ride = await this.loadRideForUpdate(manager, rideId, [
-        'customer',
-        'driver',
-      ]);
+  try {
+    const manager = queryRunner.manager;
 
-      // Ownership checks
-      if (role === 'driver' && ride.driver_id !== userId) {
-        throw new BadRequestException('You are not the assigned driver.');
-      }
-      if (role === 'customer' && ride.customer_id !== userId) {
-        throw new BadRequestException('You are not the customer on this ride.');
-      }
+    // Lock only the ride row
+    const ride = await manager
+      .createQueryBuilder(RideBooking, 'ride')
+      .where('ride.id = :rideId', { rideId })
+      .setLock('pessimistic_write')
+      .getOne();
 
-      // Terminal states
-      if (
-        ride.ride_status === RideStatus.CANCELLED_BY_CUSTOMER ||
-        ride.ride_status === RideStatus.CANCELLED_BY_DRIVER ||
-        ride.ride_status === RideStatus.COMPLETED
-      ) {
-        throw new BadRequestException('Cannot cancel this ride.');
-      }
-
-      // Optional: block cancel after start
-      // if (ride.ride_status === RideStatus.IN_PROGRESS) {
-      //   throw new BadRequestException('Ride already in progress; contact support.');
-      // }
-
-      const status =
-        role === 'driver'
-          ? RideStatus.CANCELLED_BY_DRIVER
-          : RideStatus.CANCELLED_BY_CUSTOMER;
-
-      ride.ride_status = status;
-      ride.cancel_reason = dto.reason;
-      await manager.save(ride);
-
-      await this.createRideLog(
-        manager,
-        ride,
-        status,
-        `Cancelled: ${dto.reason}`,
-        userId,
-      );
-
-      await queryRunner.commitTransaction();
-
-      return {
-        success: true,
-        message: `Ride cancelled by ${role}.`,
-        data: ride,
-      };
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      this.handleUnknown(err);
-    } finally {
-      await queryRunner.release();
+    if (!ride) {
+      throw new NotFoundException('Ride not found');
     }
+
+    // Optionally load customer and driver (no lock here)
+    if (ride.customer_id) {
+      const customer = await manager.findOne(User, {
+        where: { id: ride.customer_id },
+      });
+      if (customer) {
+        ride.customer = customer;
+      }
+    }
+
+    if (ride.driver_id) {
+      const driver = await manager.findOne(User, {
+        where: { id: ride.driver_id },
+      });
+      if (driver) {
+        ride.driver = driver;
+      }
+    }
+
+    // Ownership check
+    if (role === 'driver' && ride.driver_id !== userId) {
+      throw new BadRequestException('You are not the assigned driver.');
+    }
+    if (role === 'customer' && ride.customer_id !== userId) {
+      throw new BadRequestException('You are not the customer on this ride.');
+    }
+
+    // Terminal state protection
+    if (
+      ride.ride_status === RideStatus.CANCELLED_BY_CUSTOMER ||
+      ride.ride_status === RideStatus.CANCELLED_BY_DRIVER ||
+      ride.ride_status === RideStatus.COMPLETED
+    ) {
+      throw new BadRequestException('Cannot cancel this ride.');
+    }
+
+    // Set cancel status and reason
+    const status =
+      role === 'driver'
+        ? RideStatus.CANCELLED_BY_DRIVER
+        : RideStatus.CANCELLED_BY_CUSTOMER;
+
+    ride.ride_status = status;
+    ride.cancel_reason = dto.reason;
+
+    await manager.save(ride);
+
+    await this.createRideLog(
+      manager,
+      ride,
+      status,
+      `Cancelled: ${dto.reason}`,
+      userId,
+    );
+
+    await queryRunner.commitTransaction();
+
+    return {
+      success: true,
+      message: `Ride cancelled by ${role}.`,
+      data: ride,
+    };
+  } catch (err) {
+    await queryRunner.rollbackTransaction();
+    this.handleUnknown(err);
+  } finally {
+    await queryRunner.release();
   }
+}
+
 
   async createRideLog(
     manager: EntityManager,
@@ -1484,6 +1559,85 @@ export class RideBookingService {
     });
     return rows.map((r) => r.driver_id).filter((id) => id !== winningDriverId);
   }
+
+  async getRideSummary(rideId: number) {
+    const ride = await this.rideBookRepo.findOne({
+      where: { id: rideId },
+      relations: ['driver', 'customer', 'routing'],
+    });
+
+    if (!ride) {
+      throw new NotFoundException('Ride not found');
+    }
+
+    const driver = ride.driver;
+    const customer = ride.customer;
+
+    const [driverRating, customerRating] = await Promise.all([
+      this.getUserRatingStats(driver.id),
+      this.getUserRatingStats(customer.id),
+    ]);
+
+    const pickup = ride.routing.find(r => r.type === RideLocationType.PICKUP);
+    const dropoff = ride.routing.find(r => r.type === RideLocationType.DROPOFF);
+    const driverLocation = ride.routing.find(r => r.type === RideLocationType.DRIVER_LOCATION);
+
+    console.log('Ride Summary working');
+
+    return {
+      id: ride.id,
+      status: ride.ride_status,
+      fare: {
+        total: ride.total_fare,
+        base: ride.base_fare,
+        discount: ride.discount,
+      },
+      otp: ride.otp_code,
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        rating: driverRating.average,
+        rating_count: driverRating.count,
+        phone: driver.phone,
+        coordinates: driverLocation
+          ? {
+              latitude: driverLocation.latitude,
+              longitude: driverLocation.longitude,
+            }
+          : null,
+      },
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        rating: customerRating.average,
+        rating_count: customerRating.count,
+      },
+      pickup,
+      dropoff,
+      started_at: ride.ride_start_time,
+      created_at: ride.created_at,
+    };
+  }
+
+  private async getUserRatingStats(userId: number) {
+    const ratings = await this.dataSource
+      .getRepository(Rating)
+      .find({ where: { user_id: userId } });
+
+    const count = ratings.length;
+    const average =
+      count === 0
+        ? 0
+        : parseFloat(
+            (
+              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+            ).toFixed(1)
+          );
+
+    return { average, count };
+  }
+
+
   /* private buildOfferMeta(dto: DriverOfferDto) {
     const meta: Record<string, any> = {};
     if (dto.eta_minutes !== undefined) meta.eta = dto.eta_minutes;
@@ -1577,55 +1731,132 @@ export class RideBookingService {
     });
   }
 
+  // private assertTransition(from: RideStatus, to: RideStatus) {
+  //   // Allow same-state transitions for idempotency
+  //   if (from === to) return;
+
+  //   const allowed: Record<RideStatus, RideStatus[]> = {
+  //     [RideStatus.REQUESTED]: [RideStatus.CONFIRMED],
+  //     [RideStatus.DRIVER_OFFERED]: [RideStatus.CONFIRMED],
+  //     [RideStatus.CONFIRMED]: [
+  //       RideStatus.ARRIVED,
+  //       RideStatus.STARTED, // 👈 ADD THIS LINE
+  //       RideStatus.CANCELLED_BY_CUSTOMER,
+  //       RideStatus.CANCELLED_BY_DRIVER,
+  //     ],
+  //     [RideStatus.ARRIVED]: [
+  //       RideStatus.IN_PROGRESS,
+  //       RideStatus.CANCELLED_BY_CUSTOMER,
+  //       RideStatus.CANCELLED_BY_DRIVER,
+  //     ],
+  //     [RideStatus.STARTED]: [
+  //       RideStatus.IN_PROGRESS,
+  //       RideStatus.COMPLETED,
+  //       RideStatus.CANCELLED_BY_CUSTOMER,
+  //       RideStatus.CANCELLED_BY_DRIVER,
+  //     ],
+  //     [RideStatus.IN_PROGRESS]: [
+  //       RideStatus.COMPLETED,
+  //       RideStatus.CANCELLED_BY_CUSTOMER,
+  //       RideStatus.CANCELLED_BY_DRIVER,
+  //     ],
+  //     [RideStatus.COMPLETED]: [],
+  //     [RideStatus.CANCELLED_BY_CUSTOMER]: [],
+  //     [RideStatus.CANCELLED_BY_DRIVER]: [],
+  //     [RideStatus.EXPIRED]: [],
+  //     [RideStatus.CUSTOMER_SELECTED]: [],
+  //     [RideStatus.DRIVER_EN_ROUTE]: [],
+  //   };
+
+  //   const allowedTargets = allowed[from] ?? [];
+  //   if (!allowedTargets.includes(to)) {
+  //     throw new BadRequestException(
+  //       `Cannot change ride from ${from} to ${to}.`,
+  //     );
+  //   }
+  // }
+
   private assertTransition(from: RideStatus, to: RideStatus) {
-    // Allow same-state transitions for idempotency
-    if (from === to) return;
+      if (from === to) return;
 
-    const allowed: Record<RideStatus, RideStatus[]> = {
-      [RideStatus.REQUESTED]: [RideStatus.CONFIRMED],
-      [RideStatus.DRIVER_OFFERED]: [RideStatus.CONFIRMED],
-      [RideStatus.CONFIRMED]: [
-        RideStatus.ARRIVED,
-        RideStatus.CANCELLED_BY_CUSTOMER,
-        RideStatus.CANCELLED_BY_DRIVER,
-      ],
-      [RideStatus.ARRIVED]: [
-        RideStatus.IN_PROGRESS,
-        RideStatus.CANCELLED_BY_CUSTOMER,
-        RideStatus.CANCELLED_BY_DRIVER,
-      ],
-      [RideStatus.IN_PROGRESS]: [
-        RideStatus.COMPLETED,
-        RideStatus.CANCELLED_BY_CUSTOMER,
-        RideStatus.CANCELLED_BY_DRIVER,
-      ],
-      [RideStatus.COMPLETED]: [],
-      [RideStatus.CANCELLED_BY_CUSTOMER]: [],
-      [RideStatus.CANCELLED_BY_DRIVER]: [],
-      [RideStatus.EXPIRED]: [],
-      [RideStatus.CUSTOMER_SELECTED]: [],
-      [RideStatus.DRIVER_EN_ROUTE]: [],
-    };
+      const allowed: Record<RideStatus, RideStatus[]> = {
+        [RideStatus.REQUESTED]: [RideStatus.CONFIRMED],
+        [RideStatus.DRIVER_OFFERED]: [RideStatus.CONFIRMED],
+        [RideStatus.CONFIRMED]: [
+          RideStatus.ARRIVED,
+          RideStatus.STARTED,
+          RideStatus.CANCELLED_BY_CUSTOMER,
+          RideStatus.CANCELLED_BY_DRIVER,
+        ],
+        [RideStatus.ARRIVED]: [
+          RideStatus.STARTED,
+          RideStatus.IN_PROGRESS,
+          RideStatus.CANCELLED_BY_CUSTOMER,
+          RideStatus.CANCELLED_BY_DRIVER,
+        ],
+        [RideStatus.STARTED]: [
+          RideStatus.IN_PROGRESS,
+          RideStatus.COMPLETED,
+          RideStatus.CANCELLED_BY_CUSTOMER,
+          RideStatus.CANCELLED_BY_DRIVER,
+        ],
+        [RideStatus.IN_PROGRESS]: [
+          RideStatus.COMPLETED,
+          RideStatus.CANCELLED_BY_CUSTOMER,
+          RideStatus.CANCELLED_BY_DRIVER,
+        ],
+        [RideStatus.COMPLETED]: [],
+        [RideStatus.CANCELLED_BY_CUSTOMER]: [],
+        [RideStatus.CANCELLED_BY_DRIVER]: [],
+        [RideStatus.EXPIRED]: [],
+        [RideStatus.CUSTOMER_SELECTED]: [],
+        [RideStatus.DRIVER_EN_ROUTE]: [],
+      };
 
-    const allowedTargets = allowed[from] ?? [];
-    if (!allowedTargets.includes(to)) {
-      throw new BadRequestException(
-        `Cannot change ride from ${from} to ${to}.`,
-      );
+      const allowedTargets = allowed[from] ?? [];
+
+      console.log('🚦 Ride transition check:', {
+        from,
+        to,
+        allowedTargets,
+        isAllowed: allowedTargets.includes(to),
+      });
+
+      if (!allowedTargets.includes(to)) {
+        throw new BadRequestException(
+          `Cannot change ride from ${from} to ${to}.`,
+        );
+      }
     }
-  }
 
-  private async loadRideForUpdate(
-    manager: EntityManager,
-    rideId: number,
-    relations: string[] = [],
-  ) {
-    const ride = await manager.findOne(RideBooking, {
-      where: { id: rideId },
-      relations,
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (!ride) throw new NotFoundException('Ride not found');
-    return ride;
-  }
+
+  async loadRideForUpdate(
+      manager: EntityManager,
+      rideId: number,
+    ): Promise<RideBooking> {
+      // 1. Lock only the RideBooking table (not its relations)
+      const ride = await manager
+        .createQueryBuilder(RideBooking, 'ride')
+        .where('ride.id = :rideId', { rideId })
+        .setLock('pessimistic_write') // ✅ this is safe now
+        .getOne();
+
+      if (!ride) {
+        throw new NotFoundException('Ride not found');
+      }
+
+      // 2. Load fare_standard separately to avoid LEFT JOIN lock issues
+      if (ride.fare_standard_id) {
+        const fareStandard = await manager.findOne(RideFareStandard, {
+          where: { id: ride.fare_standard_id },
+        });
+        if (fareStandard) {
+          ride.fare_standard = fareStandard;
+        }
+      }
+
+      return ride;
+    }
+
+
 }
