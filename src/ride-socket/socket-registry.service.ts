@@ -11,11 +11,14 @@ export class SocketRegisterService {
   private driverSockets = new Map<number, SocketRef>();
   private socketToCustomer = new Map<string, number>(); // socketId -> userId
   private socketToDriver = new Map<string, number>();
+  private socketIdToUser = new Map<string, { userId: number; role: 'driver' | 'customer' }>();
+
 
   // --- Customer ---
   setCustomerSocket(customerId: number, socketId: string, namespace: string) {
     this.customerSockets.set(customerId, { socketId, namespace });
     this.socketToCustomer.set(socketId, customerId);
+    this.socketIdToUser.set(socketId, { userId: customerId, role: 'customer' }); // ✅
   }
 
   getCustomerSocket(customerId: number): SocketRef | undefined {
@@ -26,10 +29,15 @@ export class SocketRegisterService {
     return this.socketToCustomer.get(socketId);
   }
 
+  getUserFromSocket(socketId: string): { userId: number; role: 'driver' | 'customer' } | null {
+    return this.socketIdToUser.get(socketId) ?? null;
+  }
+
   // --- Driver ---
   setDriverSocket(driverId: number, socketId: string, namespace: string) {
     this.driverSockets.set(driverId, { socketId, namespace });
     this.socketToDriver.set(socketId, driverId);
+    this.socketIdToUser.set(socketId, { userId: driverId, role: 'driver' }); // ✅
   }
 
   getDriverSocket(driverId: number): SocketRef | undefined {
@@ -58,5 +66,8 @@ export class SocketRegisterService {
       this.socketToDriver.delete(socketId);
       this.driverSockets.delete(driverId);
     }
+
+    // ✅ Remove from user map
+    this.socketIdToUser.delete(socketId);
   }
 }
