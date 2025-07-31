@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  OneToMany,
   ManyToOne,
   JoinColumn,
   BeforeInsert,
@@ -10,11 +11,15 @@ import { Admin } from 'src/admin/entity/admin.entity';
 import { User } from 'src/users/entity/user.entity';
 import { RideFareStandard } from 'src/ride-fare-standards/entity/ride-fare-standards.entity';
 import { RideStatus, RideType } from 'src/common/enums/ride-booking.enum';
+import { RideRouting } from 'src/ride-booking/entity/ride-routing.entity';
 
 @Entity('ride_bookings')
 export class RideBooking {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @OneToMany(() => RideRouting, (routing) => routing.ride, { cascade: true })
+  routing: RideRouting[];
 
   @Column({ type: 'enum', enum: RideType, default: RideType.PRIVATE })
   ride_type: RideType;
