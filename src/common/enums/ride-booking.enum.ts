@@ -10,6 +10,7 @@ export enum RideStatus {
   CONFIRMED = 'confirmed', // ride is now official (was BOOKED)
   DRIVER_EN_ROUTE = 'driver_en_route', // optional alias for ARRIVED flow
   ARRIVED = 'arrived',
+  STARTED = 'started',
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   CANCELLED_BY_CUSTOMER = 'cancelled_by_customer',
