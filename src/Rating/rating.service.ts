@@ -97,9 +97,9 @@ export class RatingService {
         rideId,
         remarks,
         rating,
-        user,
+        // user,
         user_id: Ride.customer_id,
-        driverId: null, // Get driver from ride
+        // driverId: null, // Get driver from ride
       });
       const saved = await this.ratingRepository.save(newRating);
 
@@ -143,8 +143,8 @@ export class RatingService {
         rideId,
         remarks,
         rating,
-        user,
-        user_id: null,
+        // user,
+        // user_id: null,
         driverId: Ride.driver_id, // Get driver from ride
       });
       const saved = await this.ratingRepository.save(newRating);

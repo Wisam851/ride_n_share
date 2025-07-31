@@ -15,6 +15,7 @@ import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { CreateRatingDto, UpdateRatingDto, rateDto } from './dto/Rating.dto';
 import { User } from 'src/users/entity/user.entity';
+import { Roles } from 'src/common/decorators/roles.decorator';
 
 @UseGuards(UserJwtAuthGuard)
 @Controller('user/rating')
@@ -28,6 +29,7 @@ export class RatingController {
     return await this.ratingService.create({ ...rating, userId });
   }
 
+  @Roles('customer')
   @Post('rate-to-driver')
   async rateToDriver(
     @Body() rating: rateDto,
@@ -36,6 +38,7 @@ export class RatingController {
     return await this.ratingService.rateToDriver({ ...rating, userId });
   }
 
+  @Roles('driver')
   @Post('rate-to-customer')
   async rateToCustomer(
     @Body() rating: rateDto,

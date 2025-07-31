@@ -35,8 +35,8 @@ export class Rating {
   @JoinColumn({ name: 'rideId' })
   ride_booking: RideBooking;
 
-  @Column()
-  remarks: string;
+  @Column({ nullable: true })
+  remarks?: string;
 
   @Column('float')
   rating: number;
