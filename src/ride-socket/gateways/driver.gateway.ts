@@ -1,8 +1,4 @@
-import {
-  Logger,
-  UseGuards,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Logger, UseGuards, OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -26,7 +22,11 @@ import { inspect } from 'util';
 
 @WebSocketGateway({ namespace: 'driver', cors: { origin: '*' } })
 export class DriverGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit
 {
   @WebSocketServer()
   server: Namespace;
@@ -51,13 +51,17 @@ export class DriverGateway
       const user = authenticateSocket(client);
 
       if (!user.roles.includes('driver')) {
-        this.logger.warn(`❌ Unauthorized: user ${user.sub} lacks 'driver' role`);
+        this.logger.warn(
+          `❌ Unauthorized: user ${user.sub} lacks 'driver' role`,
+        );
         client.emit('unauthorized', { message: 'Driver role required' });
         client.disconnect();
         return;
       }
 
-      this.logger.log(`✅ Driver connected: userId=${user.sub}, socketId=${client.id}`);
+      this.logger.log(
+        `✅ Driver connected: userId=${user.sub}, socketId=${client.id}`,
+      );
       this.socketRegistry.setDriverSocket(user.sub, client.id, '/driver');
 
       const allDrivers = this.socketRegistry.getAllDriversSockets();
@@ -95,8 +99,7 @@ export class DriverGateway
   ) {
     const driverId = this.socketRegistry.getDriverIdFromSocket(client.id);
     if (!driverId) {
-
-    console.log('driver not register ');
+      console.log('driver not register ');
       client.emit('offer-error', {
         success: false,
         message: 'Driver not registered',
@@ -114,7 +117,7 @@ export class DriverGateway
     }
 
     try {
-        console.log('inside try ');
+      console.log('inside try ');
       const result = await this.rideBookingService.offerRide(
         data.requestId,
         driverId,
@@ -143,13 +146,12 @@ export class DriverGateway
           const root = getRootServer(this.server);
           const customerNs = root.of('/customer');
 
-          customerNs.to(customerRef.socketId).emit(
-            SOCKET_EVENTS.RIDE_OFFERS_UPDATE,
-            {
+          customerNs
+            .to(customerRef.socketId)
+            .emit(SOCKET_EVENTS.RIDE_OFFERS_UPDATE, {
               requestId: data.requestId,
               offers: result.data, // this should include the driver info
-            },
-          );
+            });
 
           this.logger.log(
             `📤 Notified customerId=${rideReq.customer_id} about driver offer ${result.data?.[0]?.requestId} ${result.data?.[0]?.offers}`,
@@ -157,15 +159,17 @@ export class DriverGateway
 
           console.log('-------------');
           console.log(inspect(result.data, { depth: null, colors: true }));
-          console.log('-----------------------------------------------------------------------------');
+          console.log(
+            '-----------------------------------------------------------------------------',
+          );
 
-          this.logger.log(`📤 Sending offer update to customer ${rideReq.customer_id} on socket ${customerRef?.socketId}`);
-
+          this.logger.log(
+            `📤 Sending offer update to customer ${rideReq.customer_id} on socket ${customerRef?.socketId}`,
+          );
         }
       }
     } catch (err: any) {
-
-       console.log('inside catch ');
+      console.log('inside catch ');
       client.emit('offer-error', {
         success: false,
         message: err.message || 'Offer failed',
@@ -204,11 +208,13 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
-            type: 'arrived',
-            rideId: ride.data.id,
-            message: 'Your driver has arrived',
-          });
+          customerNs
+            .to(customerRef.socketId)
+            .emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+              type: 'arrived',
+              rideId: ride.data.id,
+              message: 'Your driver has arrived',
+            });
         }
       } else {
         client.emit(SOCKET_EVENTS.RIDER_REACHED, {
@@ -255,11 +261,13 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
-            type: 'started',
-            rideId: ride.data.id,
-            message: 'Your ride has started',
-          });
+          customerNs
+            .to(customerRef.socketId)
+            .emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+              type: 'started',
+              rideId: ride.data.id,
+              message: 'Your ride has started',
+            });
         }
       } else {
         client.emit('rider-started-response', {
@@ -292,19 +300,29 @@ export class DriverGateway
 
     try {
       console.log('Fetching ride summary for rideId:', body.rideId);
-      const rideSummary = await this.rideBookingService.getRideSummary(body.rideId);
+      const rideSummary = await this.rideBookingService.getRideSummary(
+        body.rideId,
+      );
 
-      console.log('-----------------------------------------------------------------------------');
+      console.log(
+        '-----------------------------------------------------------------------------',
+      );
       console.log('Ride Summary:', rideSummary);
-      console.log('-----------------------------------------------------------------------------');
+      console.log(
+        '-----------------------------------------------------------------------------',
+      );
 
-      const customerSocket = this.socketRegistry.getCustomerSocket(rideSummary.customer.id);
+      const customerSocket = this.socketRegistry.getCustomerSocket(
+        rideSummary.customer.id,
+      );
       if (customerSocket) {
         const customerNs = this.server.server.of('/customer');
-        customerNs.to(customerSocket.socketId).emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
-          success: true,
-          data: rideSummary,
-        });
+        customerNs
+          .to(customerSocket.socketId)
+          .emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
+            success: true,
+            data: rideSummary,
+          });
       }
 
       return client.emit(SOCKET_EVENTS.RIDE_SUMMARY_RESPONSE, {
@@ -322,7 +340,7 @@ export class DriverGateway
   }
 
   @SubscribeMessage(SOCKET_EVENTS.RIDE_COMPLETED)
-  @UseGuards(WsRolesGuard)                            
+  @UseGuards(WsRolesGuard)
   @WsRoles('driver')
   async handleRideCompleted(
     @MessageBody() body: { rideId: number },
@@ -351,11 +369,13 @@ export class DriverGateway
 
         if (customerRef) {
           const customerNs = this.server.server.of('/customer');
-          customerNs.to(customerRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
-            type: 'completed',
-            rideId: ride.data.ride_id,
-            message: 'Your ride is complete',
-          });
+          customerNs
+            .to(customerRef.socketId)
+            .emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+              type: 'completed',
+              rideId: ride.data.ride_id,
+              message: 'Your ride is complete',
+            });
         }
       } else {
         client.emit('ride-completed-response', {
@@ -392,7 +412,9 @@ export class DriverGateway
     }
 
     try {
-      console.log(`Cancelling ride ${body.rideId} for user ${userId} (${userRole}) with reason: ${body.reason}`);
+      console.log(
+        `Cancelling ride ${body.rideId} for user ${userId} (${userRole}) with reason: ${body.reason}`,
+      );
       const result = await this.rideBookingService.cancelRide(
         body.rideId,
         userId,
@@ -412,7 +434,9 @@ export class DriverGateway
         const targetNs = this.server.server.of(
           userRole === 'driver' ? '/customer' : '/driver',
         );
-        console.log(`Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`);
+        console.log(
+          `Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`,
+        );
         targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
           type: 'cancelled',
           rideId: body.rideId,
@@ -427,6 +451,4 @@ export class DriverGateway
       });
     }
   }
-
-
 }

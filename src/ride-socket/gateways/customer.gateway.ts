@@ -23,7 +23,7 @@ import { SocketRegisterService } from '../socket-registry.service';
 import { authenticateSocket } from '../utils/socket-auth.util';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
-import { getRootServer } from '../utils/get-root-server.util';  
+import { getRootServer } from '../utils/get-root-server.util';
 
 @WebSocketGateway({ namespace: 'customer', cors: { origin: '*' } })
 export class CustomerGateway
@@ -107,7 +107,7 @@ export class CustomerGateway
       const messages = errors
         .map((err) => (err.constraints ? Object.values(err.constraints) : []))
         .flat();
-        console.log('REQUEST_RIDE event received - validation errors', messages);
+      console.log('REQUEST_RIDE event received - validation errors', messages);
       client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
         message: 'Validation error',
@@ -122,7 +122,10 @@ export class CustomerGateway
       console.log('REQUEST_RIDE event received - calling service');
       result = await this.rideBookingService.requestRide(dto, customerId);
     } catch (err: any) {
-      console.log('REQUEST_RIDE event received - ride request failed', err.message);
+      console.log(
+        'REQUEST_RIDE event received - ride request failed',
+        err.message,
+      );
       this.logger.error(`requestRide failed: ${err.message}`);
       client.emit(SOCKET_EVENTS.RIDE_REQUEST_CREATED, {
         success: false,
@@ -162,7 +165,9 @@ export class CustomerGateway
       customerName: customer.name,
       customerPhone: customer.phone,
       customerImage: customer.image,
-      customerRating: await this.ratingService.calculateCustomerAverageRating(customer.id),
+      customerRating: await this.ratingService.calculateCustomerAverageRating(
+        customer.id,
+      ),
       totalFare: rideRequest.total_fare,
       type: dto.type,
       ride_km: dto.ride_km,
@@ -265,6 +270,66 @@ export class CustomerGateway
           message: 'This ride has been assigned to another driver.',
         });
       }
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_CANCELLED)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('customer', 'driver') // ✅ Allow both
+  async handleRideCancelled(
+    @MessageBody() body: { rideId: number; reason: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('Handling ride cancellation request:', body);
+    const userInfo = this.socketRegistry.getUserFromSocket(client.id);
+    const userRole = userInfo?.role;
+    const userId = userInfo?.userId;
+
+    if (!userId || !userRole) {
+      return client.emit('ride-cancelled-response', {
+        success: false,
+        message: 'User not identified in socket registry',
+      });
+    }
+
+    try {
+      console.log(
+        `Cancelling ride ${body.rideId} for user ${userId} (${userRole}) with reason: ${body.reason}`,
+      );
+      const result = await this.rideBookingService.cancelRide(
+        body.rideId,
+        userId,
+        { reason: body.reason },
+        userRole, // 🔁 dynamic
+      );
+
+      client.emit('ride-cancelled-response', result);
+
+      // Notify the opposite party
+      const targetRef =
+        userRole === 'driver'
+          ? this.socketRegistry.getCustomerSocket(result.data.customer_id)
+          : this.socketRegistry.getDriverSocket(result.data.driver_id);
+
+      if (targetRef) {
+        const targetNs = this.server.server.of(
+          userRole === 'driver' ? '/customer' : '/driver',
+        );
+        console.log(
+          `Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`,
+        );
+        targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+          type: 'cancelled',
+          rideId: body.rideId,
+          message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
+        });
+      }
+    } catch (err) {
+      this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);
+      client.emit('ride-cancelled-response', {
+        success: false,
+        message: err.message || 'Cancellation failed',
+      });
     }
   }
 }
