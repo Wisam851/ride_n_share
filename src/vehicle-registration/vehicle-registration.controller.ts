@@ -24,17 +24,17 @@ import {
 } from './dtos/vehicle-registration.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
+// import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { VehicleApprovalStatus } from './entity/vehicle-registration.entity';
+// import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
+import { MultiAuthGuard } from 'src/auth/multi-auth.guard';
 
 @Controller('vehicle-registrations')
-@UseGuards(UserJwtAuthGuard, RolesGuard)
+@UseGuards(MultiAuthGuard, RolesGuard)
 export class VehicleRegistrationController {
   constructor(private readonly vehicleService: VehicleRegistrationService) {}
 
-
-  @Roles('admin')
   @Patch('review/:id')
   async reviewVehicle(
     @Param('id', ParseIntPipe) id: number,
@@ -42,7 +42,7 @@ export class VehicleRegistrationController {
   ) {
     return this.vehicleService.reviewVehicle(id, dto);
   }
-  
+
   @Roles('driver')
   @Post('store')
   @UseInterceptors(
@@ -96,7 +96,6 @@ export class VehicleRegistrationController {
     return this.vehicleService.toggleStatus(id);
   }
 
-
   @Get('active')
   findActive() {
     return this.vehicleService.findActive();
@@ -107,7 +106,7 @@ export class VehicleRegistrationController {
     return this.vehicleService.findOne(id);
   }
 
- @Patch(':id')
+  @Patch(':id')
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -129,8 +128,12 @@ export class VehicleRegistrationController {
     },
   ) {
     const image = files.image?.[0]?.filename ?? dto.image ?? null;
-    const vehicle_certificate_back = files.vehicle_certificate_back?.[0]?.filename ?? dto.vehicle_certificate_back ?? null;
-    const vehicle_photo = files.vehicle_photo?.[0]?.filename ?? dto.vehicle_photo ?? null;
+    const vehicle_certificate_back =
+      files.vehicle_certificate_back?.[0]?.filename ??
+      dto.vehicle_certificate_back ??
+      null;
+    const vehicle_photo =
+      files.vehicle_photo?.[0]?.filename ?? dto.vehicle_photo ?? null;
 
     return this.vehicleService.update(id, {
       ...dto,
