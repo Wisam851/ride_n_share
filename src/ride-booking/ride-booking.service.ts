@@ -1445,6 +1445,7 @@ export class RideBookingService {
                   phone: driver.phone,
                   email: driver.email,
                   image: driver.image,
+                  rating: await this.getUserRatingStats(driver.id),
                 }
               : null,
             customer: customer
@@ -1454,6 +1455,7 @@ export class RideBookingService {
                   phone: customer.phone,
                   email: customer.email,
                   image: customer.image,
+                  rating: await this.getUserRatingStats(customer.id),
                 }
               : null,
             vehicle: vehicle
