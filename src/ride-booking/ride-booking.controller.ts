@@ -60,7 +60,7 @@ export class RideBookingController {
   @Roles('driver')
   @Get('arrived-ride/:id')
   arrivedRide(@Param('id') id: number, @CurrentUser('id') driver: number) {
-    console.log("hello")
+    console.log('hello');
     return this.service.arrivedRide(id, driver);
   }
 
@@ -95,5 +95,11 @@ export class RideBookingController {
   @Get('history')
   async getRideHistory(@CurrentUser('id') userId: number) {
     return this.service.getRideHistory(userId);
+  }
+
+  @Roles('driver')
+  @Get('get-monthly-earning')
+  getMonthlyEarning(@CurrentUser('id') driverId: number) {
+    return this.service.getMonthlyEarning(driverId);
   }
 }

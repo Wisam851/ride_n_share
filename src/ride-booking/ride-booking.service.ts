@@ -1388,18 +1388,7 @@ export class RideBookingService {
         order: { created_at: 'DESC' },
         relations: ['driver', 'customer', 'fare_standard'],
       });
-      // Group rides by status
-      const scheduledStatuses = [
-        RideStatus.REQUESTED,
-        RideStatus.DRIVER_OFFERED,
-        RideStatus.CUSTOMER_SELECTED,
-        RideStatus.CONFIRMED,
-        RideStatus.DRIVER_EN_ROUTE,
-        RideStatus.ARRIVED,
-      ];
-      const inProgressStatuses = [RideStatus.IN_PROGRESS];
-      const completedStatuses = [RideStatus.COMPLETED];
-      // Helper to get driver's vehicle
+
       const getDriverVehicle = async (driverId: number) => {
         if (!driverId) return null;
         const userVehicleRepo = this.dataSource.getRepository('user_vehicles');
@@ -1524,29 +1513,43 @@ export class RideBookingService {
           },
         };
       };
-      // Await all ride mappings
-      const scheduled = await Promise.all(
-        rides
-          .filter((r) => scheduledStatuses.includes(r.ride_status))
-          .map(mapRide),
-      );
+
+      //Get in progress rides
+      const inProgressStatuses = [RideStatus.ARRIVED, RideStatus.STARTED];
+
       const in_progress = await Promise.all(
         rides
           .filter((r) => inProgressStatuses.includes(r.ride_status))
           .map(mapRide),
       );
+
+      //Get completed rides
+      const completedStatuses = [RideStatus.COMPLETED];
+
       const completed = await Promise.all(
         rides
           .filter((r) => completedStatuses.includes(r.ride_status))
           .map(mapRide),
       );
+
+      //Get cancelled rides
+      const cancelledStatuses = [
+        RideStatus.CANCELLED_BY_CUSTOMER,
+        RideStatus.CANCELLED_BY_DRIVER,
+      ];
+      const cancelled = await Promise.all(
+        rides
+          .filter((r) => cancelledStatuses.includes(r.ride_status))
+          .map(mapRide),
+      );
+
       return {
         success: true,
         message: 'Ride history fetched successfully',
         data: {
-          scheduled,
           in_progress,
           completed,
+          cancelled,
         },
       };
     } catch (err) {
@@ -1878,5 +1881,68 @@ export class RideBookingService {
     }
 
     return ride;
+  }
+
+  async getMonthlyEarning(driverId: number) {
+    try {
+      const driver = await this.userRepo.findOne({
+        where: { id: driverId },
+      });
+
+      if (!driver) {
+        throw new NotFoundException(`Driver with ID ${driverId} not found`);
+      }
+
+      const currentDate = new Date();
+      const startOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1,
+      );
+      const endOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+
+      const result = await this.rideBookRepo
+        .createQueryBuilder('ride')
+        .select('SUM(ride.total_fare)', 'totalEarnings')
+        .where('ride.driver_id = :driverId', { driverId })
+        .andWhere('ride.ride_status = :status', {
+          status: RideStatus.COMPLETED,
+        })
+        .andWhere('ride.created_at >= :startOfMonth', { startOfMonth })
+        .andWhere('ride.created_at <= :endOfMonth', { endOfMonth })
+        .getRawOne();
+
+      const totalEarnings = parseFloat(result?.totalEarnings || '0');
+
+      return {
+        totalEarnings,
+        month: currentDate.toLocaleString('default', {
+          month: 'long',
+          year: 'numeric',
+        }),
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Failed to fetch monthly earnings',
+      );
+    }
   }
 }
