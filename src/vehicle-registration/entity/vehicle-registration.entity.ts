@@ -30,6 +30,12 @@ export class VehicleRegistration {
   @Column({ nullable: true })
   image: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  vehicle_certificate_back: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  vehicle_photo: string;
+
   @Column({
     type: 'smallint',
     default: 1,

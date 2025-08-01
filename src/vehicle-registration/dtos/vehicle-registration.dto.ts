@@ -18,6 +18,12 @@ export class CreateVehicleRegistrationDto {
 
   @IsOptional()
   image: string;
+  
+  @IsOptional()
+  vehicle_certificate_back: string;
+
+  @IsOptional()
+  vehicle_photo: string;
 
   @IsNotEmpty()
   userId: number;
@@ -44,6 +50,12 @@ export class UpdateVehicleRegistrationDto {
 
   @IsOptional()
   image: string;
+
+  @IsOptional()
+  vehicle_certificate_back: string;
+  
+  @IsOptional()
+  vehicle_photo: string;
 
   @IsOptional()
   seats_count: number;

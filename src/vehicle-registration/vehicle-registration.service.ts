@@ -38,13 +38,12 @@ export class VehicleRegistrationService {
       cause: err as Error,
     });
   }
-
   async create(dto: CreateVehicleRegistrationDto) {
     try {
-      const user = await this.userRepo.findOne({ where: { id: dto.userId } });
-      if (!user) throw new NotFoundException('User not found');
+      const user = await this.userRepo.findOne({ where: { id: dto.userId } }); // 🔁 Fix here
+      if (!user) throw new NotFoundException('Driver not found');
 
-      const { userId, ...vehicleData } = dto;
+      const { userId, ...vehicleData } = dto; // 🔁 Fix here
 
       const vehicle = this.vehicleRepo.create(vehicleData);
       const savedVehicle = await this.vehicleRepo.save(vehicle);
@@ -52,7 +51,7 @@ export class VehicleRegistrationService {
       const userVehicle = this.userVehicleRepo.create({
         user,
         vehicle: savedVehicle,
-      });  
+      });
 
       await this.userVehicleRepo.save(userVehicle);
 
@@ -60,6 +59,29 @@ export class VehicleRegistrationService {
         success: true,
         message: 'Vehicle has been registered successfully',
         data: savedVehicle,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
+  async toggleStatus(id: number) {
+    try {
+      const vehicle = await this.vehicleRepo.findOneBy({ id });
+      if (!vehicle) {
+        throw new NotFoundException(`Vehicle with ID ${id} not found`);
+      }
+
+      // Flip status: 1 -> 0, 0 -> 1
+      vehicle.status = vehicle.status === 1 ? 0 : 1;
+      vehicle.updated_at = new Date().toISOString().split('T')[0];
+
+      const updated = await this.vehicleRepo.save(vehicle);
+
+      return {
+        success: true,
+        message: `Vehicle has been marked as ${vehicle.status === 1 ? 'active' : 'inactive'}`,
+        data: updated,
       };
     } catch (err) {
       this.handleUnknown(err);
