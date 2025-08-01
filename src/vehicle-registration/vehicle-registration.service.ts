@@ -232,4 +232,15 @@ export class VehicleRegistrationService {
     }
   }
 
+  async findByStatus(status: VehicleApprovalStatus) {
+    const list = await this.vehicleRepo.find({ where: { approval_status: status } });
+
+    return {
+      success: true,
+      message: `${status} vehicles`,
+      data: list,
+    };
+  }
+
+
 }

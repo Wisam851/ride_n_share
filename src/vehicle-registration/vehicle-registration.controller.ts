@@ -26,6 +26,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { VehicleApprovalStatus } from './entity/vehicle-registration.entity';
 
 @Controller('vehicle-registrations')
 @UseGuards(UserJwtAuthGuard, RolesGuard)
@@ -83,6 +84,11 @@ export class VehicleRegistrationController {
   @Get()
   findAll() {
     return this.vehicleService.findAll();
+  }
+
+  @Get('by-status/:status')
+  findByStatus(@Param('status') status: VehicleApprovalStatus) {
+    return this.vehicleService.findByStatus(status);
   }
 
   @Patch('toggle-status/:id')
