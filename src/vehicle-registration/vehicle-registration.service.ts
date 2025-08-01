@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { VehicleApprovalStatus, VehicleRegistration } from './entity/vehicle-registration.entity';
+import {
+  VehicleApprovalStatus,
+  VehicleRegistration,
+} from './entity/vehicle-registration.entity';
 import {
   CreateVehicleRegistrationDto,
   ReviewVehicleDto,
@@ -202,11 +205,14 @@ export class VehicleRegistrationService {
       const vehicle = await this.vehicleRepo.findOne({ where: { id } });
       if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-      if (vehicle.status !== Number(VehicleApprovalStatus.PENDING)) {
+      if (vehicle.approval_status !== VehicleApprovalStatus.PENDING) {
         throw new BadRequestException('Only pending vehicles can be reviewed');
       }
 
-      if (dto.status === VehicleApprovalStatus.REJECTED && !dto.rejection_reason) {
+      if (
+        dto.status === VehicleApprovalStatus.REJECTED &&
+        !dto.rejection_reason
+      ) {
         throw new BadRequestException('Rejection reason is required');
       }
 
@@ -233,7 +239,9 @@ export class VehicleRegistrationService {
   }
 
   async findByStatus(status: VehicleApprovalStatus) {
-    const list = await this.vehicleRepo.find({ where: { approval_status: status } });
+    const list = await this.vehicleRepo.find({
+      where: { approval_status: status },
+    });
 
     return {
       success: true,
@@ -241,6 +249,4 @@ export class VehicleRegistrationService {
       data: list,
     };
   }
-
-
 }
