@@ -19,6 +19,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/common/utils/multer.config';
 import {
   CreateVehicleRegistrationDto,
+  ReviewVehicleDto,
   UpdateVehicleRegistrationDto,
 } from './dtos/vehicle-registration.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -31,6 +32,15 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 export class VehicleRegistrationController {
   constructor(private readonly vehicleService: VehicleRegistrationService) {}
 
+
+  @Roles('admin')
+  @Patch('review/:id')
+  async reviewVehicle(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ReviewVehicleDto,
+  ) {
+    return this.vehicleService.reviewVehicle(id, dto);
+  }
   
   @Roles('driver')
   @Post('store')

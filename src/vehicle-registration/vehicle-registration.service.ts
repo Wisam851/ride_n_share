@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { VehicleRegistration } from './entity/vehicle-registration.entity';
+import { VehicleApprovalStatus, VehicleRegistration } from './entity/vehicle-registration.entity';
 import {
   CreateVehicleRegistrationDto,
+  ReviewVehicleDto,
   UpdateVehicleRegistrationDto,
 } from './dtos/vehicle-registration.dto';
 import { UserVehicle } from './entity/user-vehicle.entity';
@@ -192,4 +193,43 @@ export class VehicleRegistrationService {
       this.handleUnknown(err);
     }
   }
+
+  async reviewVehicle(
+    id: number,
+    dto: ReviewVehicleDto,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const vehicle = await this.vehicleRepo.findOne({ where: { id } });
+      if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+      if (vehicle.status !== Number(VehicleApprovalStatus.PENDING)) {
+        throw new BadRequestException('Only pending vehicles can be reviewed');
+      }
+
+      if (dto.status === VehicleApprovalStatus.REJECTED && !dto.rejection_reason) {
+        throw new BadRequestException('Rejection reason is required');
+      }
+
+      vehicle.approval_status = dto.status as VehicleApprovalStatus;
+      vehicle.updated_at = new Date().toISOString().split('T')[0];
+
+      if (dto.status === VehicleApprovalStatus.REJECTED) {
+        vehicle.rejection_reason = dto.rejection_reason ?? '';
+        vehicle.rejected_at = new Date().toISOString().split('T')[0];
+      } else if (dto.status === VehicleApprovalStatus.APPROVED) {
+        vehicle.approved_at = new Date().toISOString().split('T')[0];
+        vehicle.rejection_reason = '';
+      }
+
+      await this.vehicleRepo.save(vehicle);
+
+      return {
+        success: true,
+        message: `Vehicle ${dto.status.toLowerCase()} successfully`,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
 }

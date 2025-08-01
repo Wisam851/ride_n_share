@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsEnum, IsString } from 'class-validator';
 
 export class CreateVehicleRegistrationDto {
   @IsNotEmpty()
@@ -59,4 +59,13 @@ export class UpdateVehicleRegistrationDto {
 
   @IsOptional()
   seats_count: number;
+}
+
+export class ReviewVehicleDto {
+  @IsEnum(['APPROVED', 'REJECTED'])
+  status: 'APPROVED' | 'REJECTED';
+
+  @IsOptional()
+  @IsString()
+  rejection_reason?: string;
 }
