@@ -2018,4 +2018,51 @@ export class RideBookingService {
       );
     }
   }
+
+  async getRecentPlaces(userId: number) {
+    const rides = await this.rideBookRepo.find({
+      where: { customer_id: userId },
+      order: { id: 'DESC' },
+      take: 20,
+      relations: ['routing'],
+    });
+
+    const places: {
+      address: string;
+      latitude: number;
+      longitude: number;
+      type: string;
+    }[] = [];
+
+    for (const ride of rides) {
+      if (ride.routing && Array.isArray(ride.routing)) {
+        for (const route of ride.routing) {
+          if (route.type === RideLocationType.DROPOFF) {
+            places.push({
+              address: route.address,
+              latitude: route.latitude,
+              longitude: route.longitude,
+              type: route.type,
+            });
+          }
+        }
+      }
+    }
+
+    const uniquePlaces: typeof places = [];
+    const seen = new Set();
+    for (const place of places) {
+      const key = `${place.address}|${place.latitude}|${place.longitude}|${place.type}`;
+      if (!seen.has(key)) {
+        uniquePlaces.push(place);
+        seen.add(key);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Recent places fetched successfully',
+      data: uniquePlaces,
+    };
+  }
 }

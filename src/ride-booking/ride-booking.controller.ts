@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { RideBookingService } from './ride-booking.service';
@@ -30,6 +31,7 @@ export class RideBookingController {
   calculateFare(@Body() dto: CalculateFareDto) {
     return this.service.calculateFare(dto);
   }
+
   // 1. Customer Requests a Ride
   @Roles('customer')
   @Post('request')
@@ -107,5 +109,11 @@ export class RideBookingController {
   @Get('get-today-earning')
   getTodayEarning(@CurrentUser('id') driverId: number) {
     return this.service.getTodayEarning(driverId);
+  }
+
+  @Roles('customer')
+  @Get('recent-places')
+  async getRecentPlaces(@CurrentUser('id') userId: number) {
+    return this.service.getRecentPlaces(userId);
   }
 }
