@@ -1925,13 +1925,17 @@ export class RideBookingService {
       const totalEarnings = parseFloat(result?.totalEarnings || '0');
 
       return {
-        totalEarnings,
-        month: currentDate.toLocaleString('default', {
-          month: 'long',
-          year: 'numeric',
-        }),
-        startDate: startOfMonth,
-        endDate: endOfMonth,
+        success: true,
+        message: 'Ride history fetched successfully',
+        data: {
+          totalEarnings,
+          month: currentDate.toLocaleString('default', {
+            month: 'long',
+            year: 'numeric',
+          }),
+          startDate: startOfMonth,
+          endDate: endOfMonth,
+        },
       };
     } catch (error) {
       if (
