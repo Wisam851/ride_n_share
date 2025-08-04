@@ -17,6 +17,7 @@ import {
 } from './dtos/vehicle-registration.dto';
 import { UserVehicle } from './entity/user-vehicle.entity';
 import { User } from 'src/users/entity/user.entity';
+import { VehicleImage } from './entity/vehicle-image.entity';
 
 @Injectable()
 export class VehicleRegistrationService {
@@ -29,6 +30,9 @@ export class VehicleRegistrationService {
 
     @InjectRepository(UserVehicle)
     private userVehicleRepo: Repository<UserVehicle>,
+
+    @InjectRepository(VehicleImage)
+    private vehicleImageRepo: Repository<VehicleImage>,
   ) {}
 
   private handleUnknown(err: unknown): never {
@@ -42,27 +46,57 @@ export class VehicleRegistrationService {
       cause: err as Error,
     });
   }
-  async create(dto: CreateVehicleRegistrationDto) {
+  async create(
+    dto: CreateVehicleRegistrationDto & {
+      images: string[];
+      vehicle_certificate_back: string;
+      vehicle_photo: string;
+    },
+  ) {
     try {
-      const user = await this.userRepo.findOne({ where: { id: dto.userId } }); // 🔁 Fix here
+      const user = await this.userRepo.findOne({ where: { id: dto.userId } });
       if (!user) throw new NotFoundException('Driver not found');
 
-      const { userId, ...vehicleData } = dto; // 🔁 Fix here
+      // Create vehicle with main images
+      const vehicle = await this.vehicleRepo.save(
+        this.vehicleRepo.create({
+          vehicleName: dto.vehicleName,
+          vehiclemodel: dto.vehiclemodel,
+          registrationNumber: dto.registrationNumber,
+          color: dto.color,
+          company: dto.company,
+          seats_count: dto.seats_count,
+          vehicle_certificate_back: dto.vehicle_certificate_back,
+          vehicle_photo: dto.vehicle_photo,
+        }),
+      );
 
-      const vehicle = this.vehicleRepo.create(vehicleData);
-      const savedVehicle = await this.vehicleRepo.save(vehicle);
+      // Create user-vehicle relationship
+      await this.userVehicleRepo.save(
+        this.userVehicleRepo.create({
+          user,
+          vehicle,
+        }),
+      );
 
-      const userVehicle = this.userVehicleRepo.create({
-        user,
-        vehicle: savedVehicle,
-      });
-
-      await this.userVehicleRepo.save(userVehicle);
+      if (dto.images.length > 0) {
+        await this.vehicleImageRepo.save(
+          dto.images.map((imagePath) =>
+            this.vehicleImageRepo.create({
+              imagePath,
+              vehicle: { id: vehicle.id },
+            }),
+          ),
+        );
+      }
 
       return {
         success: true,
-        message: 'Vehicle has been registered successfully',
-        data: savedVehicle,
+        message: 'Vehicle registered successfully',
+        data: await this.vehicleRepo.findOne({
+          where: { id: vehicle.id },
+          relations: ['images'],
+        }),
       };
     } catch (err) {
       this.handleUnknown(err);
@@ -94,7 +128,10 @@ export class VehicleRegistrationService {
 
   async findOne(id: number) {
     try {
-      const vehicle = await this.vehicleRepo.findOne({ where: { id } });
+      const vehicle = await this.vehicleRepo.findOne({
+        where: { id },
+        relations: ['images'],
+      });
       if (!vehicle)
         throw new NotFoundException(`Vehicle with ID ${id} not found`);
 
@@ -127,9 +164,9 @@ export class VehicleRegistrationService {
       if (!vehicle)
         throw new NotFoundException(`Vehicle with ID ${id} not found`);
 
-      if (!dto.image) {
-        dto.image = vehicle.image;
-      }
+      // if (!dto.images) {
+      //   dto.images = vehicle.images;
+      // }
 
       Object.assign(vehicle, dto);
       const updated = await this.vehicleRepo.save(vehicle);

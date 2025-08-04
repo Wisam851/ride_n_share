@@ -43,44 +43,83 @@ export class VehicleRegistrationController {
     return this.vehicleService.reviewVehicle(id, dto);
   }
 
+  // @Roles('driver')
+  // @Post('store')
+  // @UseInterceptors(
+  //   FileFieldsInterceptor(
+  //     [
+  //       { name: 'image', maxCount: 10 },
+  //       { name: 'vehicle_certificate_back', maxCount: 1 },
+  //       { name: 'vehicle_photo', maxCount: 1 },
+  //     ],
+  //     multerConfig('uploads'),
+  //   ),
+  // )
+  // create(
+  //   @Body() dto: CreateVehicleRegistrationDto,
+  //   @UploadedFiles()
+  //   files: {
+  //     image?: Express.Multer.File[];
+  //     vehicle_certificate_back?: Express.Multer.File[];
+  //     vehicle_photo?: Express.Multer.File[];
+  //   },
+  //   @CurrentUser() user: any,
+  // ) {
+  //   const image = files.image?.[0]?.filename;
+  //   const certificateBack = files.vehicle_certificate_back?.[0]?.filename;
+  //   const vehiclePhoto = files.vehicle_photo?.[0]?.filename;
+
+  //   if (!image || !certificateBack || !vehiclePhoto) {
+  //     throw new BadRequestException('All vehicle images are required');
+  //   }
+
+  //   return this.vehicleService.create({
+  //     ...dto,
+  //     userId: user.userId,
+  //     image,
+  //     vehicle_certificate_back: certificateBack,
+  //     vehicle_photo: vehiclePhoto,
+  //   });
+  // }
+
   @Roles('driver')
   @Post('store')
   @UseInterceptors(
     FileFieldsInterceptor(
       [
-        { name: 'image', maxCount: 1 },
+        { name: 'images', maxCount: 10 },
         { name: 'vehicle_certificate_back', maxCount: 1 },
         { name: 'vehicle_photo', maxCount: 1 },
       ],
       multerConfig('uploads'),
     ),
   )
-  create(
+  async create(
     @Body() dto: CreateVehicleRegistrationDto,
     @UploadedFiles()
     files: {
-      image?: Express.Multer.File[];
+      images?: Express.Multer.File[];
       vehicle_certificate_back?: Express.Multer.File[];
       vehicle_photo?: Express.Multer.File[];
     },
-    @CurrentUser() user: any,
+    @CurrentUser('id') userId: number,
   ) {
-    const image = files.image?.[0]?.filename;
-    const certificateBack = files.vehicle_certificate_back?.[0]?.filename;
-    const vehiclePhoto = files.vehicle_photo?.[0]?.filename;
-
-    if (!image || !certificateBack || !vehiclePhoto) {
-      throw new BadRequestException('All vehicle images are required');
+    // Validate required files
+    if (!files.vehicle_certificate_back?.[0] || !files.vehicle_photo?.[0]) {
+      throw new BadRequestException(
+        'Certificate and vehicle photo are required',
+      );
     }
 
     return this.vehicleService.create({
       ...dto,
-      userId: user.userId,
-      image,
-      vehicle_certificate_back: certificateBack,
-      vehicle_photo: vehiclePhoto,
+      userId: userId,
+      images: files.images?.map((img) => img.filename) || [],
+      vehicle_certificate_back: files.vehicle_certificate_back[0].filename,
+      vehicle_photo: files.vehicle_photo[0].filename,
     });
   }
+
   @Get()
   findAll() {
     return this.vehicleService.findAll();
@@ -106,42 +145,42 @@ export class VehicleRegistrationController {
     return this.vehicleService.findOne(id);
   }
 
-  @Patch(':id')
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'image', maxCount: 1 },
-        { name: 'vehicle_certificate_back', maxCount: 1 },
-        { name: 'vehicle_photo', maxCount: 1 },
-      ],
-      multerConfig('uploads'), // 📁 Custom multer config
-    ),
-  )
-  async updateVehicleRegistration(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateVehicleRegistrationDto,
-    @UploadedFiles()
-    files: {
-      image?: Express.Multer.File[];
-      vehicle_certificate_back?: Express.Multer.File[];
-      vehicle_photo?: Express.Multer.File[];
-    },
-  ) {
-    const image = files.image?.[0]?.filename ?? dto.image ?? null;
-    const vehicle_certificate_back =
-      files.vehicle_certificate_back?.[0]?.filename ??
-      dto.vehicle_certificate_back ??
-      null;
-    const vehicle_photo =
-      files.vehicle_photo?.[0]?.filename ?? dto.vehicle_photo ?? null;
+  // @Patch(':id')
+  // @UseInterceptors(
+  //   FileFieldsInterceptor(
+  //     [
+  //       { name: 'image', maxCount: 1 },
+  //       { name: 'vehicle_certificate_back', maxCount: 1 },
+  //       { name: 'vehicle_photo', maxCount: 1 },
+  //     ],
+  //     multerConfig('uploads'), // 📁 Custom multer config
+  //   ),
+  // )
+  // async updateVehicleRegistration(
+  //   @Param('id', ParseIntPipe) id: number,
+  //   @Body() dto: UpdateVehicleRegistrationDto,
+  //   @UploadedFiles()
+  //   files: {
+  //     image?: Express.Multer.File[];
+  //     vehicle_certificate_back?: Express.Multer.File[];
+  //     vehicle_photo?: Express.Multer.File[];
+  //   },
+  // ) {
+  //   const image = files.image?.[0]?.filename ?? dto.image ?? null;
+  //   const vehicle_certificate_back =
+  //     files.vehicle_certificate_back?.[0]?.filename ??
+  //     dto.vehicle_certificate_back ??
+  //     null;
+  //   const vehicle_photo =
+  //     files.vehicle_photo?.[0]?.filename ?? dto.vehicle_photo ?? null;
 
-    return this.vehicleService.update(id, {
-      ...dto,
-      image,
-      vehicle_certificate_back,
-      vehicle_photo,
-    });
-  }
+  //   return this.vehicleService.update(id, {
+  //     ...dto,
+  //     image,
+  //     vehicle_certificate_back,
+  //     vehicle_photo,
+  //   });
+  // }
 
   @Delete('soft-delete/:id')
   softDelete(@Param('id', ParseIntPipe) id: number) {

@@ -3,7 +3,9 @@ import {
   PrimaryGeneratedColumn,
   Column,
   BeforeInsert,
+  OneToMany,
 } from 'typeorm';
+import { VehicleImage } from './vehicle-image.entity';
 
 export enum VehicleApprovalStatus {
   PENDING = 'PENDING',
@@ -30,9 +32,6 @@ export class VehicleRegistration {
 
   @Column({ type: 'text', nullable: true })
   company: string;
-
-  @Column({ nullable: true })
-  image: string; // front doc image
 
   @Column({ type: 'varchar', nullable: true })
   vehicle_certificate_back: string;
@@ -73,6 +72,9 @@ export class VehicleRegistration {
 
   @Column({ type: 'date' })
   updated_at: string;
+
+  @OneToMany(() => VehicleImage, (image) => image.vehicle)
+  images: VehicleImage[];
 
   @BeforeInsert()
   setCreateDateParts() {

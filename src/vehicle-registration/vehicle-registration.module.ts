@@ -5,9 +5,17 @@ import { VehicleRegistrationController } from './vehicle-registration.controller
 import { VehicleRegistrationService } from './vehicle-registration.service';
 import { User } from 'src/users/entity/user.entity';
 import { UserVehicle } from './entity/user-vehicle.entity';
+import { VehicleImage } from './entity/vehicle-image.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VehicleRegistration, User, UserVehicle])],
+  imports: [
+    TypeOrmModule.forFeature([
+      VehicleRegistration,
+      User,
+      UserVehicle,
+      VehicleImage,
+    ]),
+  ],
   controllers: [VehicleRegistrationController],
   providers: [VehicleRegistrationService],
   exports: [VehicleRegistrationService],

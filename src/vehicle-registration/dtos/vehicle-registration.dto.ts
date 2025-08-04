@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsEnum, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsArray,
+} from 'class-validator';
 
 export class CreateVehicleRegistrationDto {
   @IsNotEmpty()
@@ -17,8 +23,9 @@ export class CreateVehicleRegistrationDto {
   company: string;
 
   @IsOptional()
-  image: string;
-  
+  @IsArray({ each: true })
+  images?: string[];
+
   @IsOptional()
   vehicle_certificate_back: string;
 
@@ -49,11 +56,12 @@ export class UpdateVehicleRegistrationDto {
   company: string;
 
   @IsOptional()
-  image: string;
+  @IsArray()
+  images?: string[];
 
   @IsOptional()
   vehicle_certificate_back: string;
-  
+
   @IsOptional()
   vehicle_photo: string;
 
