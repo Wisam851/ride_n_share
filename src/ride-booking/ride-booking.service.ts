@@ -1951,4 +1951,71 @@ export class RideBookingService {
       );
     }
   }
+
+  async getTodayEarning(driverId: number) {
+    try {
+      const driver = await this.userRepo.findOne({
+        where: { id: driverId },
+      });
+
+      if (!driver) {
+        throw new NotFoundException(`Driver with ID ${driverId} not found`);
+      }
+
+      const currentDate = new Date();
+      const startOfDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        0,
+        0,
+        0,
+      );
+      const endOfDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        23,
+        59,
+        59,
+        999,
+      );
+
+      const result = await this.rideBookRepo
+        .createQueryBuilder('ride')
+        .select('SUM(ride.total_fare)', 'totalEarnings')
+        .where('ride.driver_id = :driverId', { driverId })
+        .andWhere('ride.ride_status = :status', {
+          status: RideStatus.COMPLETED,
+        })
+        .andWhere('ride.created_at >= :startOfDay', { startOfDay })
+        .andWhere('ride.created_at <= :endOfDay', { endOfDay })
+        .getRawOne();
+
+      const totalEarnings = parseFloat(result?.totalEarnings || '0');
+
+      return {
+        success: true,
+        message: "Today's earnings fetched successfully",
+        data: {
+          totalEarnings,
+          date: currentDate.toLocaleDateString(),
+          startDate: startOfDay,
+          endDate: endOfDay,
+        },
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        "Failed to fetch today's earnings",
+      );
+    }
+  }
 }

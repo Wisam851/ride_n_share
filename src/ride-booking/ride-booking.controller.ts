@@ -102,4 +102,10 @@ export class RideBookingController {
   getMonthlyEarning(@CurrentUser('id') driverId: number) {
     return this.service.getMonthlyEarning(driverId);
   }
+
+  @Roles('driver')
+  @Get('get-today-earning')
+  getTodayEarning(@CurrentUser('id') driverId: number) {
+    return this.service.getTodayEarning(driverId);
+  }
 }
