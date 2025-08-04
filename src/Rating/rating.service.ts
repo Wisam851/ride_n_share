@@ -54,6 +54,7 @@ export class RatingService {
         user,
         user_id: userId,
         driverId: Ride.driver_id, // Get driver from ride
+        rate_by: userId, // Set who is giving the rating
       });
       const saved = await this.ratingRepository.save(newRating);
 
@@ -86,7 +87,7 @@ export class RatingService {
     }
 
     const existing = await this.ratingRepository.findOne({
-      where: { driverId: userId, rideId },
+      where: { rate_by: userId, rideId },
     });
     if (existing) {
       throw new BadRequestException('You have already rated this ride');
@@ -97,7 +98,8 @@ export class RatingService {
       remarks,
       rating,
       user_id: ride.customer_id, // customer is the recipient
-      driverId: userId, // driver is rating the customer
+      driverId: null,
+      rate_by: userId, // driver is giving the rating
     });
 
     const saved = await this.ratingRepository.save(newRating);
@@ -125,7 +127,7 @@ export class RatingService {
     }
 
     const existing = await this.ratingRepository.findOne({
-      where: { user_id: userId, rideId },
+      where: { rate_by: userId, rideId },
     });
     if (existing) {
       throw new BadRequestException('You have already rated this ride');
@@ -135,8 +137,9 @@ export class RatingService {
       rideId,
       remarks,
       rating,
-      user_id: userId, // customer is rating
+      user_id: null,
       driverId: ride.driver_id, // driver is the recipient
+      rate_by: userId, // customer is giving the rating
     });
 
     const saved = await this.ratingRepository.save(newRating);

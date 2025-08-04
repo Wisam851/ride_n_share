@@ -54,6 +54,9 @@ export class Rating {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  rate_by: number;
+
   @Column({
     type: 'smallint',
     default: 1,
