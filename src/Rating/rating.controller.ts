@@ -51,6 +51,11 @@ export class RatingController {
   async getAllRatings(@CurrentUser('id') userId: number) {
     return await this.ratingService.getAllRatings(userId);
   }
+
+  @Get('my-rating')
+  async getMyRatings(@CurrentUser('id') userId: number) {
+    return await this.ratingService.getMyRatings(userId);
+  }
   @Get('show/:id')
   async getRatingByID(
     @Param('id', ParseIntPipe) id: number,

@@ -8,8 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Rating } from './entity/rating.entity';
 import { User } from 'src/users/entity/user.entity';
 import { Repository } from 'typeorm';
-import { CreateRatingDto, UpdateRatingDto, rateDto } from './dto/Rating.dto';
+import { CreateRatingDto, UpdateRatingDto } from './dto/Rating.dto';
 import { RideBooking } from 'src/ride-booking/entity/ride-booking.entity';
+import { inspect } from 'util';
 
 @Injectable()
 export class RatingService {
@@ -167,6 +168,65 @@ export class RatingService {
       throw new InternalServerErrorException('Failed to get ratings');
     }
   }
+
+  async getMyRatings(userId: number) {
+    try {
+      // Get user with roles
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: ['userRoles', 'userRoles.role'],
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const userRole = user.userRoles?.find((ur) => ur.status === 1);
+      if (!userRole) {
+        throw new BadRequestException('User has no active role');
+      }
+
+      const roleName = userRole.role.name.toLowerCase();
+      let whereCondition: Record<string, any> = {};
+
+      if (roleName === 'customer') {
+        whereCondition = { user_id: userId };
+      } else if (roleName === 'driver') {
+        whereCondition = { driverId: userId };
+      } else {
+        throw new BadRequestException('Invalid user role');
+      }
+
+      const result = (await this.ratingRepository
+        .createQueryBuilder('rating')
+        .select('COUNT(*)', 'count')
+        .addSelect('AVG(rating.rating)', 'average')
+        .where(whereCondition)
+        .getRawOne()) as { count: string; average: string | null };
+
+      const count = parseInt(result?.count || '0', 10);
+      const average = parseFloat(result?.average || '0');
+
+      return {
+        success: true,
+        message: 'Ratings fetched successfully',
+        data: {
+          total_ratings: count,
+          average_rating: parseFloat(average.toFixed(1)),
+        },
+      };
+    } catch (error) {
+      console.error('Error while fetching ratings:', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to get ratings');
+    }
+  }
+
   async getRatingByID(id: number, userId: number) {
     try {
       const rating = await this.ratingRepository.findOne({
@@ -242,8 +302,6 @@ export class RatingService {
       rating.updated_at = new Date().toISOString().split('T')[0];
 
       const save = await this.ratingRepository.save(rating);
-      const message =
-        rating.status === 0 ? 'Marked As InActive' : "'Marked As Active";
 
       return {
         success: true,

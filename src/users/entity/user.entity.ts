@@ -89,6 +89,9 @@ export class User {
   @Column({ nullable: true })
   access_token: string;
 
-  @OneToMany(() => UserRole, (userRole) => userRole.role)
+  // @OneToMany(() => UserRole, (userRole) => userRole.role)
+  // userRoles: UserRole[];
+
+  @OneToMany(() => UserRole, (userRole) => userRole.user)
   userRoles: UserRole[];
 }
