@@ -9,6 +9,7 @@ import {
 import { UserDetails } from './user_details.entity';
 import { Exclude } from 'class-transformer';
 import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
+import { UserVehicle } from 'src/vehicle-registration/entity/user-vehicle.entity';
 
 @Entity()
 export class User {
@@ -94,4 +95,8 @@ export class User {
 
   @OneToMany(() => UserRole, (userRole) => userRole.user)
   userRoles: UserRole[];
+
+  // ✅ ADD THIS: vehicles owned by user (driver)
+    @OneToMany(() => UserVehicle, (uv) => uv.user)
+    userVehicles: UserVehicle[];
 }
