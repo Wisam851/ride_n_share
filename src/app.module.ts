@@ -26,11 +26,13 @@ import { RideBookingSeederService } from './ride-booking/seeder/ride-booking-see
 import { RatingModule } from './Rating/rating.module';
 import { ComplaintsCategoryModule } from './complaints-category/complaints-category.module';
 import { RideModule } from './ride-socket/ride.module';
+// import { RideChatModule } from './ride-chat/ride-chat.module';
 import { UserAuthSeederModule } from './auth/user/seeder/user-auth-seeder.module';
 import { UserAuthSeederService } from './auth/user/seeder/user-auth-seeder.service';
 import { AdminAuthSeederModule } from './admin/seeder/admin-auth-seeder.module';
 import { AdminAuthSeederService } from './admin/seeder/admin-auth-seeder.service';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
@@ -74,8 +76,10 @@ import { ScheduleModule } from '@nestjs/schedule';
     ComplaintsCategoryModule,
     RideBookingModule,
     RideModule,
+    // RideChatModule,
     UserAuthSeederModule,
     AdminAuthSeederModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [AppService],
