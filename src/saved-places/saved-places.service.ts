@@ -24,7 +24,10 @@ export class SavedPlacesService {
   ) {}
 
   private handleUnknown(err: unknown): never {
-    if (err instanceof BadRequestException || err instanceof NotFoundException) {
+    if (
+      err instanceof BadRequestException ||
+      err instanceof NotFoundException
+    ) {
       throw err;
     }
     throw new InternalServerErrorException('Unexpected server error occurred', {

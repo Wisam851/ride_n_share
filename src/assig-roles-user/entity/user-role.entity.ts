@@ -37,10 +37,10 @@ export class UserRole {
   status: number;
 
   @Column({ type: 'date' })
-  created_at: String;
+  created_at: string;
 
   @Column({ type: 'date' })
-  updated_at: String;
+  updated_at: string;
 
   @BeforeInsert()
   setCreateDateParts() {

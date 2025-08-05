@@ -11,8 +11,10 @@ export class SocketRegisterService {
   private driverSockets = new Map<number, SocketRef>();
   private socketToCustomer = new Map<string, number>(); // socketId -> userId
   private socketToDriver = new Map<string, number>();
-  private socketIdToUser = new Map<string, { userId: number; role: 'driver' | 'customer' }>();
-
+  private socketIdToUser = new Map<
+    string,
+    { userId: number; role: 'driver' | 'customer' }
+  >();
 
   // --- Customer ---
   setCustomerSocket(customerId: number, socketId: string, namespace: string) {
@@ -29,7 +31,9 @@ export class SocketRegisterService {
     return this.socketToCustomer.get(socketId);
   }
 
-  getUserFromSocket(socketId: string): { userId: number; role: 'driver' | 'customer' } | null {
+  getUserFromSocket(
+    socketId: string,
+  ): { userId: number; role: 'driver' | 'customer' } | null {
     return this.socketIdToUser.get(socketId) ?? null;
   }
 

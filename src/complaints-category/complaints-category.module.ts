@@ -6,8 +6,8 @@ import { complaintsCaterory } from './entity/complaints_category.entity';
 import { Admin } from 'src/admin/entity/admin.entity';
 
 @Module({
-  imports : [ TypeOrmModule.forFeature([ complaintsCaterory,Admin])],
+  imports: [TypeOrmModule.forFeature([complaintsCaterory, Admin])],
   controllers: [ComplaintsCategoryController],
-  providers: [ComplaintsCategoryService]
+  providers: [ComplaintsCategoryService],
 })
 export class ComplaintsCategoryModule {}

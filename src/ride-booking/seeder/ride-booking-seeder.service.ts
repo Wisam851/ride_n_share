@@ -28,9 +28,7 @@ export class RideBookingSeederService {
     const fare = await this.fareRepo.findOne({ where: { status: 1 } });
     const rideBooking = await this.rideRepo.find();
     if (rideBooking.length > 0) {
-      this.logger.error(
-        'Ride Booking is already have First Entry',
-      );
+      this.logger.error('Ride Booking is already have First Entry');
       return;
     }
     if (!customer || !driver || !fare) {

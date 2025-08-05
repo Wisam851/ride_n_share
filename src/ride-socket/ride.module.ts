@@ -8,7 +8,12 @@ import { RatingModule } from 'src/Rating/rating.module';
 
 @Module({
   imports: [RideBookingModule, RatingModule],
-  providers: [CustomerGateway, DriverGateway, SocketRegisterService, RatingService],
+  providers: [
+    CustomerGateway,
+    DriverGateway,
+    SocketRegisterService,
+    RatingService,
+  ],
   exports: [CustomerGateway, DriverGateway, SocketRegisterService],
 })
 export class RideModule {}

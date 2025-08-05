@@ -28,7 +28,7 @@ export class RolesController {
   }
 
   @Get('show/:id')
-  async show(@Param('id', ParseIntPipe) id: number){
+  async show(@Param('id', ParseIntPipe) id: number) {
     return this.rolesService.findOne(id);
   }
   @Patch('update/:id')
@@ -36,9 +36,8 @@ export class RolesController {
     return this.rolesService.update(data, id);
   }
 
-  @Get("toogleStatus/:id")
-  async toogleStatus(@Param('id', ParseIntPipe) id: number){
+  @Get('toogleStatus/:id')
+  async toogleStatus(@Param('id', ParseIntPipe) id: number) {
     return this.rolesService.toogleStatus(id);
   }
-
 }

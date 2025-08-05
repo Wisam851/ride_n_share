@@ -9,6 +9,6 @@ import { RideBooking } from '../entity/ride-booking.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([RideBooking, User, RideFareStandard])],
   providers: [RideBookingSeederService],
-  exports: [RideBookingSeederService]
+  exports: [RideBookingSeederService],
 })
 export class RideBookingSeederModule {}

@@ -53,7 +53,7 @@ export class RideFareStandardsService {
 
   async findAll() {
     try {
-      const list = await this.fareRepo.find({order: {id: 'ASC'}});
+      const list = await this.fareRepo.find({ order: { id: 'ASC' } });
       return {
         success: true,
         message: 'All ride fare standards fetched',

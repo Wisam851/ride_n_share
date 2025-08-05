@@ -40,7 +40,7 @@ export class CustomerGateway
   ) {}
 
   afterInit() {
-    this.ioServer = this.server.server as Server;
+    this.ioServer = this.server.server;
     this.logger.log('✅ Customer WebSocket Initialized');
   }
   private getDriverNamespace() {

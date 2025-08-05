@@ -19,7 +19,10 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return R * c;
 }
 
-export function estimateEtaMinutes(distanceKm: number, avgSpeedKmh = 35): number {
+export function estimateEtaMinutes(
+  distanceKm: number,
+  avgSpeedKmh = 35,
+): number {
   if (avgSpeedKmh <= 0) return 0;
   return (distanceKm / avgSpeedKmh) * 60;
 }

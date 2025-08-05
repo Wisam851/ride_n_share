@@ -20,7 +20,7 @@ import { multerConfig } from 'src/common/utils/multer.config';
 import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
 
 @Controller('admin')
-@UseGuards(AdminJwtAuthGuard)   
+@UseGuards(AdminJwtAuthGuard)
 export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}
 
