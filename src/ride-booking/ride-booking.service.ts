@@ -577,8 +577,18 @@ export class RideBookingService {
           ],
         });
 
-      const fullDriver = offerWithDriver?.driver;
-      const vehicle = fullDriver?.userVehicles?.[0]?.vehicle ?? null;
+      const fullDriver = await this.dataSource.getRepository(User).findOne({
+        where: { id: driverId },
+        relations: ['userVehicles', 'userVehicles.vehicle'],
+      });
+
+      const vehicle = fullDriver?.userVehicles?.find(
+        (uv) => uv.vehicle?.status === 1,
+      )?.vehicle ?? null;
+
+      if (!vehicle) {
+        throw new BadRequestException('No active vehicle found for driver.');
+      }
 
       return {
         success: true,
