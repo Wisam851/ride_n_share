@@ -125,6 +125,11 @@ export class VehicleRegistrationController {
     return this.vehicleService.findAll();
   }
 
+  @Get('my-vehicles')
+  myVehicles(@CurrentUser('id') userId: number) {
+    return this.vehicleService.myVehicles(userId);
+  }
+
   @Get('by-status/:status')
   findByStatus(@Param('status') status: VehicleApprovalStatus) {
     return this.vehicleService.findByStatus(status);

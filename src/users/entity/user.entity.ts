@@ -100,6 +100,6 @@ export class User {
   userRoles: UserRole[];
 
   // ✅ ADD THIS: vehicles owned by user (driver)
-    @OneToMany(() => UserVehicle, (uv) => uv.user)
-    userVehicles: UserVehicle[];
+  @OneToMany(() => UserVehicle, (uv) => uv.user)
+  userVehicles: UserVehicle[];
 }

@@ -449,7 +449,8 @@ export class RideBookingService {
         lock: { mode: 'pessimistic_write' },
       });
 
-      if (!rideRequest) throw new BadRequestException('Ride request not found.');
+      if (!rideRequest)
+        throw new BadRequestException('Ride request not found.');
 
       // Validate driver
       const driver = await queryRunner.manager.findOne(User, {
@@ -476,7 +477,10 @@ export class RideBookingService {
 
       // Get pickup and dropoff coords
       const pickup = await this.getPickupCoords(queryRunner.manager, requestId);
-      const dropoff = await this.getDropoffCoords(queryRunner.manager, requestId);
+      const dropoff = await this.getDropoffCoords(
+        queryRunner.manager,
+        requestId,
+      );
 
       let distanceKm: number | null = null;
       let etaMin: number | null = null;
@@ -582,10 +586,10 @@ export class RideBookingService {
         relations: ['userVehicles', 'userVehicles.vehicle'],
       });
 
-      const vehicle = fullDriver?.userVehicles?.find(
-        (uv) => uv.vehicle?.status === 1,
-      )?.vehicle ?? null;
-      
+      const vehicle =
+        fullDriver?.userVehicles?.find((uv) => uv.vehicle?.status === 1)
+          ?.vehicle ?? null;
+
       console.log('Vehicle:', vehicle);
 
       if (!vehicle) {
@@ -623,7 +627,6 @@ export class RideBookingService {
       await queryRunner.release();
     }
   }
-
 
   // for the driver expiration
   @Cron(CronExpression.EVERY_10_SECONDS)

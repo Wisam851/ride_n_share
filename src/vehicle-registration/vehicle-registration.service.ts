@@ -158,6 +158,25 @@ export class VehicleRegistrationService {
     }
   }
 
+  async myVehicles(userId: number) {
+    try {
+      const userVehicles = await this.userVehicleRepo.find({
+        where: { user: { id: userId } },
+        relations: ['vehicle', 'vehicle.images'],
+      });
+
+      const vehicles = userVehicles.map((uv) => uv.vehicle);
+
+      return {
+        success: true,
+        message: 'User vehicles fetched successfully',
+        data: vehicles,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
   async update(id: number, dto: UpdateVehicleRegistrationDto) {
     try {
       const vehicle = await this.vehicleRepo.findOne({ where: { id } });
