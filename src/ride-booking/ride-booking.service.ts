@@ -586,6 +586,10 @@ export class RideBookingService {
         relations: ['userVehicles', 'userVehicles.vehicle'],
       });
 
+      if (!fullDriver) {
+        throw new NotFoundException('Driver not found');
+      }
+
       const vehicle =
         fullDriver?.userVehicles?.find((uv) => uv.vehicle?.status === 1)
           ?.vehicle ?? null;
@@ -596,6 +600,9 @@ export class RideBookingService {
         throw new BadRequestException('No active vehicle found for driver.');
       }
 
+      const driverRating = await this.getRatingByCondition({
+        driverId: fullDriver?.id,
+      });
       return {
         success: true,
         message: 'Driver offer recorded.',
@@ -604,6 +611,7 @@ export class RideBookingService {
             id: fullDriver?.id,
             name: fullDriver?.name,
             phone: fullDriver?.phone,
+            rating: driverRating,
             vehicle: vehicle && {
               id: vehicle.id,
               name: vehicle.vehicleName,
@@ -1097,6 +1105,19 @@ export class RideBookingService {
 
       await queryRunner.commitTransaction();
 
+      const fullDriver = await this.dataSource.getRepository(User).findOne({
+        where: { id: driverId },
+        relations: ['userVehicles', 'userVehicles.vehicle'],
+      });
+
+      if (!fullDriver) {
+        throw new NotFoundException('Driver not found');
+      }
+
+      const vehicle =
+        fullDriver?.userVehicles?.find((uv) => uv.vehicle?.status === 1)
+          ?.vehicle ?? null;
+
       return {
         success: true,
         bookingId: booking.id,
@@ -1114,6 +1135,7 @@ export class RideBookingService {
           },
           driver: {
             ...driver,
+            vehicle,
             rating: driverRating.average,
             rating_count: driverRating.count,
             otp: booking.otp_code,
@@ -2255,5 +2277,25 @@ export class RideBookingService {
       message: 'Recent places fetched successfully',
       data: uniquePlaces,
     };
+  }
+
+  private async getRatingByCondition(
+    condition: Record<string, number | string>,
+  ) {
+    const ratings = await this.dataSource
+      .getRepository(Rating)
+      .find({ where: condition });
+
+    const count = ratings.length;
+    const average =
+      count === 0
+        ? 0
+        : parseFloat(
+            (
+              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+            ).toFixed(1),
+          );
+
+    return { average, count };
   }
 }
