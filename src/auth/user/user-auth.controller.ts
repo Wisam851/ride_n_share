@@ -30,7 +30,7 @@ export class UserAuthController {
       body.email,
       body.password,
     );
-    return await this.userAuthService.login(user);
+    return await this.userAuthService.login(user, body.fcm_token);
   }
 
   @Post('register')

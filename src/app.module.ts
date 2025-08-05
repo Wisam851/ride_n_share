@@ -33,7 +33,7 @@ import { AdminAuthSeederModule } from './admin/seeder/admin-auth-seeder.module';
 import { AdminAuthSeederService } from './admin/seeder/admin-auth-seeder.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ContactModule } from './contact/contact.module';
-// import { NotificationModule } from './notification/notification.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -81,7 +81,7 @@ import { ContactModule } from './contact/contact.module';
     UserAuthSeederModule,
     AdminAuthSeederModule,
     ContactModule,
-    // NotificationModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

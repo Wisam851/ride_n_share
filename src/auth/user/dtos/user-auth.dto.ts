@@ -8,6 +8,9 @@ export class UserLoginDto {
 
   @IsNotEmpty()
   password: string;
+
+  @IsOptional()
+  fcm_token: string;
 }
 
 export class UserRegisterDto {

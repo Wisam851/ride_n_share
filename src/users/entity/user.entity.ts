@@ -90,6 +90,9 @@ export class User {
   @Column({ nullable: true })
   access_token: string;
 
+  @Column({ nullable: true })
+  fcm_token: string;
+
   // @OneToMany(() => UserRole, (userRole) => userRole.role)
   // userRoles: UserRole[];
 

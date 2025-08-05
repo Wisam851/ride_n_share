@@ -131,7 +131,7 @@ export class UserAuthService {
     }
   }
 
-  async login(user: User) {
+  async login(user: User, fcm_token: string) {
     try {
       const roles = await this.userRoleRepo.find({
         where: { user_id: user.id },
@@ -152,6 +152,7 @@ export class UserAuthService {
 
       const token = this.jwtService.sign(payload, { expiresIn: '7d' });
       user.access_token = token;
+      user.fcm_token = fcm_token;
 
       await this.userRepository.save(user);
 
