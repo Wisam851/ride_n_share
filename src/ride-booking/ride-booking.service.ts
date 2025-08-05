@@ -283,27 +283,182 @@ export class RideBookingService {
     }
   }
   /** 2. Driver offers to take the ride */
+  // async offerRide(requestId: number, driverId: number, dto: DriverOfferDto) {
+  //   const queryRunner = this.dataSource.createQueryRunner();
+  //   await queryRunner.connect();
+  //   await queryRunner.startTransaction();
+
+  //   try {
+  //     // --- lock ride request row ---
+  //     const rideRequest = await queryRunner.manager.findOne(RideRequest, {
+  //       where: { id: requestId },
+  //       lock: { mode: 'pessimistic_write' },
+  //     });
+  //     if (!rideRequest)
+  //       throw new BadRequestException('Ride request not found.');
+
+  //     // --- driver exists? ---
+  //     const driver = await queryRunner.manager.findOne(User, {
+  //       where: { id: driverId },
+  //     });
+  //     if (!driver) throw new BadRequestException('Driver Not Registered.');
+
+  //     // --- status ok? ---
+  //     if (
+  //       rideRequest.status !== RideStatus.REQUESTED &&
+  //       rideRequest.status !== RideStatus.DRIVER_OFFERED
+  //     ) {
+  //       throw new BadRequestException(
+  //         `Ride request not offerable in current status: ${rideRequest.status}`,
+  //       );
+  //     }
+
+  //     // --- request not expired ---
+  //     const now = new Date();
+  //     if (rideRequest.expires_at && rideRequest.expires_at <= now) {
+  //       throw new BadRequestException('Ride request already expired.');
+  //     }
+
+  //     // --- get pickup coords from routing ---
+  //     const pickup = await this.getPickupCoords(queryRunner.manager, requestId);
+  //     const dropoff = await this.getDropoffCoords(
+  //       queryRunner.manager,
+  //       requestId,
+  //     );
+
+  //     // pickup may be null if bad data; we continue but no distance calc
+  //     let distanceKm: number | null = null;
+  //     let etaMin: number | null = null;
+  //     if (pickup) {
+  //       distanceKm = haversineKm(
+  //         { latitude: dto.latitude, longitude: dto.longitude },
+  //         pickup,
+  //       );
+  //       etaMin = estimateEtaMinutes(distanceKm, this.getDriverAvgSpeedKmh());
+  //     }
+
+  //     // build meta to store on offer
+  //     const meta = {
+  //       driver_lat: dto.latitude,
+  //       driver_lng: dto.longitude,
+  //       pickup_lat: pickup?.latitude ?? null,
+  //       pickup_lng: pickup?.longitude ?? null,
+  //       pickup_address: pickup?.address ?? null,
+  //       dropoff_lat: dropoff?.latitude ?? null,
+  //       dropoff_lng: dropoff?.longitude ?? null,
+  //       dropoff_address: dropoff?.address ?? null,
+  //       distance_km: distanceKm,
+  //       eta_min: etaMin,
+  //     };
+
+  //     // --- upsert offer ---
+  //     const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
+  //     const expiresAt = new Date(Date.now() + this.OFFER_LIFETIME_MS);
+
+  //     let offer = await offerRepo.findOne({
+  //       where: { request_id: requestId, driver_id: driverId },
+  //       lock: { mode: 'pessimistic_write' },
+  //     });
+
+  //     if (!offer) {
+  //       offer = offerRepo.create({
+  //         request_id: requestId,
+  //         rideRequest,
+  //         driver_id: driverId,
+  //         offered_at: now,
+  //         expires_at: expiresAt,
+  //         status: RideDriverOfferStatus.ACTIVE,
+  //         meta_json: meta,
+  //       });
+  //       await offerRepo.save(offer);
+  //     } else {
+  //       if (
+  //         ![
+  //           RideDriverOfferStatus.SELECTED,
+  //           RideDriverOfferStatus.REJECTED,
+  //           RideDriverOfferStatus.WITHDRAWN,
+  //         ].includes(offer.status)
+  //       ) {
+  //         offer.offered_at = now;
+  //         offer.expires_at = expiresAt;
+  //         offer.status = RideDriverOfferStatus.ACTIVE;
+  //         offer.meta_json = meta; // replace old snapshot
+  //         await offerRepo.save(offer);
+  //       }
+  //     }
+
+  //     // --- update request status if first offer ---
+  //     if (rideRequest.status === RideStatus.REQUESTED) {
+  //       rideRequest.status = RideStatus.DRIVER_OFFERED;
+  //       await queryRunner.manager.save(rideRequest);
+  //     }
+
+  //     // --- audit event ---
+  //     const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
+  //     const event = eventRepo.create({
+  //       rideRequest,
+  //       event_type: 'driver_offered',
+  //       actor_type: RideEventActorType.DRIVER,
+  //       actor_id: driverId,
+  //       actor: driver,
+  //       payload_json: {
+  //         driverId,
+  //         requestId,
+  //         driver_location: { lat: dto.latitude, lng: dto.longitude },
+  //         distance_km: distanceKm,
+  //         eta_min: etaMin,
+  //       },
+  //     });
+  //     await eventRepo.save(event);
+
+  //     await queryRunner.commitTransaction();
+
+  //     const offerWithDriver = await this.dataSource
+  //       .getRepository(RideDriverOffer)
+  //       .findOne({
+  //         where: { id: offer.id },
+  //         relations: ['driver', 'rideRequest', 'rideRequest.customer'],
+  //       });
+
+  //     // Post-commit async actions (socket / expiry scheduling)
+  //     // this.scheduleDriverOfferExpiry(offer.id, expiresAt);
+  //     // this.socketGateway.emitDriverOffered({ requestId, driverId, offerId: offer.id });
+
+  //     return {
+  //       success: true,
+  //       message: 'Driver offer recorded.',
+  //       data: { driver: offerWithDriver?.driver, offer, request: rideRequest },
+  //     };
+  //   } catch (err) {
+  //     await queryRunner.rollbackTransaction();
+  //     this.handleUnknown(err);
+  //   } finally {
+  //     await queryRunner.release();
+  //   }
+  // }
+
   async offerRide(requestId: number, driverId: number, dto: DriverOfferDto) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // --- lock ride request row ---
+      // Lock ride request row
       const rideRequest = await queryRunner.manager.findOne(RideRequest, {
         where: { id: requestId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!rideRequest)
-        throw new BadRequestException('Ride request not found.');
 
-      // --- driver exists? ---
+      if (!rideRequest) throw new BadRequestException('Ride request not found.');
+
+      // Validate driver
       const driver = await queryRunner.manager.findOne(User, {
         where: { id: driverId },
       });
+
       if (!driver) throw new BadRequestException('Driver Not Registered.');
 
-      // --- status ok? ---
+      // Validate ride request status
       if (
         rideRequest.status !== RideStatus.REQUESTED &&
         rideRequest.status !== RideStatus.DRIVER_OFFERED
@@ -313,20 +468,16 @@ export class RideBookingService {
         );
       }
 
-      // --- request not expired ---
+      // Check if request expired
       const now = new Date();
       if (rideRequest.expires_at && rideRequest.expires_at <= now) {
         throw new BadRequestException('Ride request already expired.');
       }
 
-      // --- get pickup coords from routing ---
+      // Get pickup and dropoff coords
       const pickup = await this.getPickupCoords(queryRunner.manager, requestId);
-      const dropoff = await this.getDropoffCoords(
-        queryRunner.manager,
-        requestId,
-      );
+      const dropoff = await this.getDropoffCoords(queryRunner.manager, requestId);
 
-      // pickup may be null if bad data; we continue but no distance calc
       let distanceKm: number | null = null;
       let etaMin: number | null = null;
       if (pickup) {
@@ -337,7 +488,7 @@ export class RideBookingService {
         etaMin = estimateEtaMinutes(distanceKm, this.getDriverAvgSpeedKmh());
       }
 
-      // build meta to store on offer
+      // Meta for this offer
       const meta = {
         driver_lat: dto.latitude,
         driver_lng: dto.longitude,
@@ -351,7 +502,6 @@ export class RideBookingService {
         eta_min: etaMin,
       };
 
-      // --- upsert offer ---
       const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
       const expiresAt = new Date(Date.now() + this.OFFER_LIFETIME_MS);
 
@@ -382,18 +532,18 @@ export class RideBookingService {
           offer.offered_at = now;
           offer.expires_at = expiresAt;
           offer.status = RideDriverOfferStatus.ACTIVE;
-          offer.meta_json = meta; // replace old snapshot
+          offer.meta_json = meta;
           await offerRepo.save(offer);
         }
       }
 
-      // --- update request status if first offer ---
+      // If first offer, update request status
       if (rideRequest.status === RideStatus.REQUESTED) {
         rideRequest.status = RideStatus.DRIVER_OFFERED;
         await queryRunner.manager.save(rideRequest);
       }
 
-      // --- audit event ---
+      // Audit event
       const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
       const event = eventRepo.create({
         rideRequest,
@@ -413,21 +563,46 @@ export class RideBookingService {
 
       await queryRunner.commitTransaction();
 
+      // Load driver with vehicle details
       const offerWithDriver = await this.dataSource
         .getRepository(RideDriverOffer)
         .findOne({
           where: { id: offer.id },
-          relations: ['driver', 'rideRequest', 'rideRequest.customer'],
+          relations: [
+            'driver',
+            'driver.userVehicles',
+            'driver.userVehicles.vehicle',
+            'rideRequest',
+            'rideRequest.customer',
+          ],
         });
 
-      // Post-commit async actions (socket / expiry scheduling)
-      // this.scheduleDriverOfferExpiry(offer.id, expiresAt);
-      // this.socketGateway.emitDriverOffered({ requestId, driverId, offerId: offer.id });
+      const fullDriver = offerWithDriver?.driver;
+      const vehicle = fullDriver?.userVehicles?.[0]?.vehicle ?? null;
 
       return {
         success: true,
         message: 'Driver offer recorded.',
-        data: { driver: offerWithDriver?.driver, offer, request: rideRequest },
+        data: {
+          driver: {
+            id: fullDriver?.id,
+            name: fullDriver?.name,
+            phone: fullDriver?.phone,
+            vehicle: vehicle && {
+              id: vehicle.id,
+              name: vehicle.vehicleName,
+              model: vehicle.vehiclemodel,
+              registrationNumber: vehicle.registrationNumber,
+              color: vehicle.color,
+              image: vehicle.images,
+              certificateBack: vehicle.vehicle_certificate_back,
+              photo: vehicle.vehicle_photo,
+              seats: vehicle.seats_count,
+            },
+          },
+          offer,
+          request: rideRequest,
+        },
       };
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -436,6 +611,7 @@ export class RideBookingService {
       await queryRunner.release();
     }
   }
+
 
   // for the driver expiration
   @Cron(CronExpression.EVERY_10_SECONDS)
