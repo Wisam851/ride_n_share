@@ -585,6 +585,8 @@ export class RideBookingService {
       const vehicle = fullDriver?.userVehicles?.find(
         (uv) => uv.vehicle?.status === 1,
       )?.vehicle ?? null;
+      
+      console.log('Vehicle:', vehicle);
 
       if (!vehicle) {
         throw new BadRequestException('No active vehicle found for driver.');
