@@ -20,7 +20,7 @@ export function authenticateSocket(client: Socket): JwtPayload {
   try {
     decoded = jwt.verify(token, JWT_SECRET);
   } catch (err) {
-    throw new Error(`❌ Invalid or expired token: ${(err as any).message}`);
+    throw new Error(`❌ Invalid or expired token: ${err.message}`);
   }
 
   if (typeof decoded !== 'object' || decoded === null) {

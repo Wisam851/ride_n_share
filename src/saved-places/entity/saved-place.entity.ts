@@ -1,6 +1,6 @@
 import { User } from 'src/users/entity/user.entity';
 import {
-    BeforeInsert,
+  BeforeInsert,
   Column,
   Entity,
   JoinColumn,

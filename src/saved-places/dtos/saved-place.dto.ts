@@ -12,8 +12,6 @@ export class CreateSavedPlaceDto {
 
   @IsNotEmpty()
   address: string;
-
-  
 }
 
 export class UpdateSavedPlaceDto {
@@ -28,6 +26,4 @@ export class UpdateSavedPlaceDto {
 
   @IsOptional()
   address?: string;
-
-  
 }

@@ -30,7 +30,7 @@ export class UserAuthSeederService {
     await this.seedUser({
       name: 'Customer User',
       email: 'customer@gmail.com',
-      password: '123456789',   
+      password: '123456789',
       roleName: 'customer',
     });
 

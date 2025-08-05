@@ -12,7 +12,7 @@ import { Admin } from 'src/admin/entity/admin.entity';
 import { Permission } from 'src/permissions/entity/permission.entity';
 
 @Entity({ name: 'admin_permissions' })
-@Index(['admin_id', 'permission_id'], { unique: true }) 
+@Index(['admin_id', 'permission_id'], { unique: true })
 export class AdminPermission {
   @PrimaryGeneratedColumn()
   id: number;

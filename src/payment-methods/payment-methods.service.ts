@@ -64,7 +64,7 @@ export class PaymentMethodsService {
       await this.paymentRepo.save(method);
       const message =
         method.status === 0
-          ? 'Payment Method is inactive' 
+          ? 'Payment Method is inactive'
           : 'Payment Method is activated';
       return {
         success: true,

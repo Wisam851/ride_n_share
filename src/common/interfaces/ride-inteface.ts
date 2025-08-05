@@ -1,5 +1,5 @@
-import { RideRequestDto } from "src/ride-booking/dtos/ride-booking.dto";
-import { RideStatus } from "../enums/ride-booking.enum";
+import { RideRequestDto } from 'src/ride-booking/dtos/ride-booking.dto';
+import { RideStatus } from '../enums/ride-booking.enum';
 
 export interface RideRequestMem {
   id: number;

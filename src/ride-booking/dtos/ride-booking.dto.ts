@@ -75,7 +75,6 @@ export class ConfirmDriverDto {
   @IsNumber() driverId: number;
 }
 
-
 // ----------- For compatibility (Final booking fields)
 export class RideBookingDto {
   @IsNotEmpty()

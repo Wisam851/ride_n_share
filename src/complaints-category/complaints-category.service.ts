@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { complaintsCaterory } from './entity/complaints_category.entity';
-import { CreateComplainCategoryDto, UpdateComplainCategoryDto } from './dto/complain-category.dto';
-
-
-
+import {
+  CreateComplainCategoryDto,
+  UpdateComplainCategoryDto,
+} from './dto/complain-category.dto';
 
 @Injectable()
 export class ComplaintsCategoryService {
@@ -14,22 +18,21 @@ export class ComplaintsCategoryService {
     private categoryRepo: Repository<complaintsCaterory>,
   ) {}
 
-  async create(body,userId) {
+  async create(body, userId) {
     try {
-        const category = this.categoryRepo.create({
-                name : body.name,
-                icon : body.icon,
-                created_by : userId
-        });
+      const category = this.categoryRepo.create({
+        name: body.name,
+        icon: body.icon,
+        created_by: userId,
+      });
 
-        const saved = await this.categoryRepo.save(category);
-        return {
-            success: true,
-            message: 'Complaint category created successfully.',
-            data: saved,
-        }
-    }
-    catch (error) {
+      const saved = await this.categoryRepo.save(category);
+      return {
+        success: true,
+        message: 'Complaint category created successfully.',
+        data: saved,
+      };
+    } catch (error) {
       throw new InternalServerErrorException({
         success: false,
         message: 'Failed to create complaint category.',
@@ -42,7 +45,7 @@ export class ComplaintsCategoryService {
     try {
       const categories = await this.categoryRepo.find({
         where: { status: 1 }, // Only active
-         relations: ['admin'],
+        relations: ['admin'],
       });
 
       return {
@@ -90,36 +93,34 @@ export class ComplaintsCategoryService {
   }
 
   async update(id: number, dto: UpdateComplainCategoryDto) {
-  try {
-    const result = await this.findOne(id);
-    const category = result.data;
+    try {
+      const result = await this.findOne(id);
+      const category = result.data;
 
-    
-    if (dto.name) {
-      category.name = dto.name;
+      if (dto.name) {
+        category.name = dto.name;
+      }
+      if (dto.icon) {
+        category.icon = dto.icon;
+      }
+
+      category.updated_at = new Date().toISOString().split('T')[0];
+
+      const updated = await this.categoryRepo.save(category);
+
+      return {
+        success: true,
+        message: `Complaint category with ID ${id} updated successfully.`,
+        data: updated,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException({
+        success: false,
+        message: `Failed to update complaint category with ID ${id}.`,
+        error: error.message,
+      });
     }
-    if (dto.icon) {
-      category.icon = dto.icon;
-    }
-
-    category.updated_at = new Date().toISOString().split('T')[0];
-
-    const updated = await this.categoryRepo.save(category);
-
-    return {
-      success: true,
-      message: `Complaint category with ID ${id} updated successfully.`,
-      data: updated,
-    };
-  } catch (error) {
-    throw new InternalServerErrorException({
-      success: false,
-      message: `Failed to update complaint category with ID ${id}.`,
-      error: error.message,
-    });
   }
-}
-
 
   async delete(id: number) {
     try {
@@ -130,7 +131,8 @@ export class ComplaintsCategoryService {
       category.updated_at = new Date().toISOString().split('T')[0];
 
       await this.categoryRepo.save(category);
-      const messge = category.status === 0 ? "Marked As InActive" : "'Marked As Active";
+      const messge =
+        category.status === 0 ? 'Marked As InActive' : "'Marked As Active";
       return {
         success: true,
         message: messge,
@@ -145,4 +147,3 @@ export class ComplaintsCategoryService {
     }
   }
 }
-

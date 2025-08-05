@@ -24,7 +24,6 @@ export const SOCKET_EVENTS = {
   RIDE_SUMMARY: 'ride-summary', // out: ride summary after completion
   RIDE_SUMMARY_RESPONSE: 'ride-summary-response', // out: ride summary after completion
 
-  
   RIDE_ERROR: 'ride-error', // generic error during ride lifecycle
   OFFER_SUCCESS: 'offer-success',
   OFFER_ERROR: 'offer-error',

@@ -1,10 +1,5 @@
 // src/payment-methods/entity/payment-method.entity.ts
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  BeforeInsert,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, BeforeInsert } from 'typeorm';
 
 @Entity('payment_methods')
 export class PaymentMethod {
