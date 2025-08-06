@@ -1771,6 +1771,24 @@ export class RideBookingService {
       this.handleUnknown(err);
     }
   }
+
+  async getSelectedRideDataOnly(id: number) {
+  try {
+    const rides = await this.rideBookRepo.find({
+      where: { id },
+      order: { created_at: 'DESC' },
+    });
+
+    return {
+      success: true,
+      message: 'Raw ride data fetched successfully',
+      data: rides,
+    };
+  } catch (err) {
+    this.handleUnknown(err);
+  }
+}
+
   // Get request + customer id (minimal object)
   async getRequestWithCustomer(requestId: number): Promise<RideRequest | null> {
     return this.dataSource.getRepository(RideRequest).findOne({

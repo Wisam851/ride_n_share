@@ -99,6 +99,12 @@ export class RideBookingController {
     return this.service.getRideHistory(userId);
   }
 
+  @Roles('driver', 'customer')
+  @Get('find-one/:id')
+  async getSelectedRideDataOnly(@Param('id') id: number) {
+    return this.service.getSelectedRideDataOnly(id);
+  }
+
   @Roles('driver')
   @Get('get-monthly-earning')
   getMonthlyEarning(@CurrentUser('id') driverId: number) {

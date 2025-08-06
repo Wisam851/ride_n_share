@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './entity/notification.entity';
 import { User } from 'src/users/entity/user.entity';
+import { FirebaseService } from '../common/firebase/firebase.service';
 import {
   CreateNotificationDto,
   UpdateNotificationDto,
@@ -22,11 +24,14 @@ interface NotificationDetails {
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly firebaseService: FirebaseService,
   ) {}
 
   private toNotificationDetails(
@@ -53,20 +58,45 @@ export class NotificationService {
 
   async create(createNotificationDto: CreateNotificationDto): Promise<any> {
     const userId = createNotificationDto.userId;
-    await this.validateUser(userId);
+
+    const user = await this.validateUser(userId);
+    if (!user.fcm_token) {
+      this.logger.warn(`🚫 User ${userId} has no FCM token, skipping push`);
+    }
+
+    // 1. Save to DB
     const notification = this.notificationRepository.create({
       ...createNotificationDto,
       user: { id: userId },
     });
-    const savedNotification =
-      await this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
 
+    // 2. Send FCM Push (if token exists)
+    if (user.fcm_token) {
+      try {
+        await this.firebaseService.sendToUser(user.fcm_token, {
+          notification: {
+            title: createNotificationDto.title,
+            body: createNotificationDto.subtitle || '',
+          },
+          data: {
+            userId: String(userId),
+            ...((createNotificationDto.metadata as Record<string, string>) || {}),
+          },
+        });
+      } catch (err) {
+        this.logger.error(`🔥 FCM push failed for user ${userId}: ${err.message}`);
+      }
+    }
+
+    // 3. Return response
     return {
       success: true,
-      message: 'Notification created successfully',
+      message: 'Notification saved & sent (if token available)',
       data: this.toNotificationDetails(savedNotification),
     };
   }
+
 
   async findAll(userId: number): Promise<any> {
     await this.validateUser(userId);

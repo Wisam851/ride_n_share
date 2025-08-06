@@ -34,6 +34,7 @@ import { AdminAuthSeederService } from './admin/seeder/admin-auth-seeder.service
 import { ScheduleModule } from '@nestjs/schedule';
 import { ContactModule } from './contact/contact.module';
 import { NotificationModule } from './notification/notification.module';
+import { FirebaseModule } from './common/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { NotificationModule } from './notification/notification.module';
     AdminAuthSeederModule,
     ContactModule,
     NotificationModule,
+    FirebaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
