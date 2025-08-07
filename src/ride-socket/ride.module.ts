@@ -5,9 +5,10 @@ import { SocketRegisterService } from './socket-registry.service';
 import { CustomerGateway } from './gateways/customer.gateway';
 import { RatingService } from 'src/Rating/rating.service';
 import { RatingModule } from 'src/Rating/rating.module';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
-  imports: [RideBookingModule, RatingModule],
+  imports: [RideBookingModule, RatingModule, NotificationModule],
   providers: [
     CustomerGateway,
     DriverGateway,

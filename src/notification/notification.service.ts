@@ -56,7 +56,50 @@ export class NotificationService {
     return notification;
   }
 
+  //Customer to Driver Notification
   async create(createNotificationDto: CreateNotificationDto): Promise<any> {
+    const userId = createNotificationDto.userId;
+
+    const user = await this.validateUser(userId);
+    if (!user.fcm_token) {
+      this.logger.warn(`🚫 User ${userId} has no FCM token, skipping push`);
+    }
+
+    // 1. Save to DB
+    const notification = this.notificationRepository.create({
+      ...createNotificationDto,
+      user: { id: userId },
+    });
+    const savedNotification = await this.notificationRepository.save(notification);
+
+    // 2. Send FCM Push (if token exists)
+    if (user.fcm_token) {
+      try {
+        await this.firebaseService.sendToDriver(user.fcm_token, {
+          notification: {
+            title: createNotificationDto.title,
+            body: createNotificationDto.subtitle || '',
+          },
+          data: {
+            userId: String(userId),
+            ...((createNotificationDto.metadata as Record<string, string>) || {}),
+          },
+        });
+      } catch (err) {
+        this.logger.error(`🔥 FCM push failed for user ${userId}: ${err.message}`);
+      }
+    }
+
+    // 3. Return response
+    return {
+      success: true,
+      message: 'Notification saved & sent (if token available)',
+      data: this.toNotificationDetails(savedNotification),
+    };
+  }
+
+  // Driver to Customer Notification
+  async createFromDriver(createNotificationDto: CreateNotificationDto): Promise<any> {
     const userId = createNotificationDto.userId;
 
     const user = await this.validateUser(userId);

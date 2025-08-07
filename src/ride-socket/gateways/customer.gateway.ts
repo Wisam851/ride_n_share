@@ -14,6 +14,7 @@ import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 import { SOCKET_EVENTS } from '../ride-socket.constants';
 import { plainToInstance } from 'class-transformer';
 import { RatingService } from 'src/Rating/rating.service';
+import { NotificationService } from 'src/notification/notification.service';
 import {
   RideBookingDto,
   RideRequestDto,
@@ -37,6 +38,7 @@ export class CustomerGateway
     private readonly socketRegistry: SocketRegisterService,
     private readonly rideBookingService: RideBookingService,
     private readonly ratingService: RatingService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   afterInit() {
@@ -218,6 +220,19 @@ export class CustomerGateway
         data.driverId,
         customerId,
       );
+
+      //Firebase notification to customer
+      //---------------------------
+      this.notificationService.create({
+        title: 'Ride Confirmed',
+        subtitle: `Your ride has been confirmed by customer`,
+        userId: data.driverId,
+      });
+      this.logger.log(
+        `✅ Ride confirmed Notification sent to Driver`,
+      );
+      //---------------------------
+
     } catch (err: any) {
       client.emit(SOCKET_EVENTS.RIDE_CONFIRMED, {
         success: false,
@@ -323,6 +338,18 @@ export class CustomerGateway
           rideId: body.rideId,
           message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
         });
+
+         //Firebase notification to driver
+      //---------------------------
+      this.notificationService.create({
+        title: 'Ride Confirmed',
+        subtitle: `Your ride has been cancelled by customer`,
+        userId: result.data.driver_id,
+      });
+      this.logger.log(
+        `✅ Ride cancelled Notification sent to Driver`,
+      );
+      //---------------------------
       }
     } catch (err) {
       this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);

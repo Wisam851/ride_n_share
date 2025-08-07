@@ -18,6 +18,7 @@ import { authenticateSocket } from '../utils/socket-auth.util';
 import { getRootServer } from '../utils/get-root-server.util';
 import { WsRoles } from 'src/common/decorators/ws-roles.decorator';
 import { WsRolesGuard } from 'src/common/guards/ws-roles.guard';
+import { NotificationService } from 'src/notification/notification.service';
 import { inspect } from 'util';
 
 @WebSocketGateway({ namespace: 'driver', cors: { origin: '*' } })
@@ -36,6 +37,7 @@ export class DriverGateway
   constructor(
     private readonly rideBookingService: RideBookingService,
     private readonly socketRegistry: SocketRegisterService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   onModuleInit() {
@@ -128,6 +130,7 @@ export class DriverGateway
         },
       );
 
+
       client.emit('offer-success', {
         success: true,
         message: result.message,
@@ -162,6 +165,12 @@ export class DriverGateway
           console.log(
             '-----------------------------------------------------------------------------',
           );
+
+          this.notificationService.createFromDriver({
+            title: 'New Ride Offer',
+            subtitle: `Driver has offered a ride for your request`,
+            userId: rideReq.customer_id,
+          });
 
           this.logger.log(
             `📤 Sending offer update to customer ${rideReq.customer_id} on socket ${customerRef?.socketId}`,
@@ -215,6 +224,12 @@ export class DriverGateway
               rideId: ride.data.id,
               message: 'Your driver has arrived',
             });
+
+          this.notificationService.createFromDriver({
+            title: 'Driver Arrived',
+            subtitle: `Your driver has arrived at the pickup location`,
+            userId: ride.data.customer_id,
+          });
         }
       } else {
         client.emit(SOCKET_EVENTS.RIDER_REACHED, {
@@ -442,6 +457,18 @@ export class DriverGateway
           rideId: body.rideId,
           message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
         });
+
+         //Firebase notification to customer
+      //---------------------------
+      this.notificationService.createFromDriver({
+        title: 'Ride cancelled',
+        subtitle: `Your ride has been cancelled by Driver`,
+        userId: result.data.customer_id,
+      });
+      this.logger.log(
+        `✅ Ride cancelled Notification sent to customer`,
+      );
+      //---------------------------
       }
     } catch (err) {
       this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);

@@ -7,8 +7,9 @@ import { NotificationController } from './notification.controller';
 import { FirebaseModule } from '../common/firebase/firebase.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, User]),FirebaseModule],
+  imports: [TypeOrmModule.forFeature([Notification, User]), FirebaseModule],
   controllers: [NotificationController],
   providers: [NotificationService],
+  exports: [NotificationService],
 })
 export class NotificationModule {}
