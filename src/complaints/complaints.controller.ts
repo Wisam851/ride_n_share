@@ -49,8 +49,9 @@ export class ComplaintsController {
     updateComplaintStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateComplaintStatusDto,
+    @CurrentUser('id') adminId: number,
     ) {
-    return this.complaintServiceRepo.updateStatus(id, dto.complaint_status, dto.admin_remarks);
+    return this.complaintServiceRepo.updateStatus(id, dto.complaint_status, dto.admin_remarks,adminId);
     }
 
 
