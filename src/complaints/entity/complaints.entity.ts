@@ -47,8 +47,8 @@ export class complaints {
   @Column({ type: 'text', nullable: true })
   admin_remarks: string;
 
-  @Column({ type: 'int' })
-  responded_by: number;
+  @Column({ type: 'int', nullable: true })
+  responded_by?: number;
 
   @Column({ type: 'date' })
   created_at: string;
