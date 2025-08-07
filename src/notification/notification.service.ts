@@ -20,6 +20,7 @@ interface NotificationDetails {
   subtitle: string;
   is_read: boolean;
   metadata: Record<string, any> | null;
+  generated_at: string;
 }
 
 @Injectable()
@@ -43,6 +44,7 @@ export class NotificationService {
       subtitle: notification.subtitle,
       is_read: notification.is_read,
       metadata: notification.metadata as Record<string, any> | null,
+      generated_at: notification.created_at.toISOString(),
     };
   }
 
@@ -156,6 +158,24 @@ export class NotificationService {
       ),
     };
   }
+
+  async findUserWise(userId: number): Promise<any> {
+  await this.validateUser(userId); // Ensure user exists
+
+  const notifications = await this.notificationRepository.find({
+    where: { user: { id: userId } },
+    order: { id: 'DESC' }, // Optional: newest first
+  });
+
+  return {
+    success: true,
+    message: 'Notifications retrieved successfully',
+    data: notifications.map((notification) =>
+      this.toNotificationDetails(notification),
+    ),
+  };
+}
+
 
   async findOne(id: number): Promise<any> {
     const notification = await this.findNotificationById(id);

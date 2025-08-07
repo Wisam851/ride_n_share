@@ -42,6 +42,12 @@ export class NotificationController {
     return this.notificationService.getUnreadCount(userId);
   }
 
+  //Get Notification By UserID
+  @Get('user/:id')
+  findUserWise(@Param('id') id: string) {
+    return this.notificationService.findUserWise(+id);
+  }
+
   //Get Notification By ID
   @Get(':id')
   findOne(@Param('id') id: string) {
