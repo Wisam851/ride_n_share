@@ -46,7 +46,7 @@ export class ComplaintsService {
     try {
       const complaints = await this.complaintsRepo.find({
         where: { status: 1 }, // Only active
-        relations: ['admin'],
+        relations: ['user'],
       });
 
       return {
@@ -67,7 +67,7 @@ export class ComplaintsService {
     try {
       const complaints = await this.complaintsRepo.findOne({
         where: { id },
-        relations: ['admin'],
+        relations: ['user'],
       });
 
       if (!complaints) {
