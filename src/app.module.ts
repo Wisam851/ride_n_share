@@ -24,6 +24,7 @@ import { RideBookingModule } from './ride-booking/ride-booking.module';
 import { RideBookingSeederModule } from './ride-booking/seeder/ride-booking-seeder.module';
 import { RideBookingSeederService } from './ride-booking/seeder/ride-booking-seeder.service';
 import { RatingModule } from './Rating/rating.module';
+import { ComplaintsModule } from './complaints/complaints.module';
 import { ComplaintsCategoryModule } from './complaints-category/complaints-category.module';
 import { RideModule } from './ride-socket/ride.module';
 import { RideChatModule } from './ride-chat/ride-chat.module';
@@ -75,6 +76,7 @@ import { FirebaseModule } from './common/firebase/firebase.module';
     RideFareStandardsModule,
     RideBookingSeederModule,
     RatingModule,
+    ComplaintsModule,
     ComplaintsCategoryModule,
     RideBookingModule,
     RideModule,
