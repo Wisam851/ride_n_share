@@ -1,4 +1,5 @@
 import { User } from 'src/users/entity/user.entity';
+import { Admin } from 'src/admin/entity/admin.entity';
 import {
   BeforeInsert,
   Column,
@@ -46,6 +47,9 @@ export class complaints {
   @Column({ type: 'text', nullable: true })
   admin_remarks: string;
 
+  @Column({ type: 'int' })
+  responded_by: number;
+
   @Column({ type: 'date' })
   created_at: string;
 
@@ -66,4 +70,8 @@ export class complaints {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'created_by' })
   user: User;
+
+  @ManyToOne(() => Admin)
+  @JoinColumn({ name: 'responded_by' })
+  admin: Admin;
 }
