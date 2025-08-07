@@ -45,13 +45,16 @@ export class ComplaintsService {
     }
   }
 
-  async updateStatus(id: number, complaint_status: ComplaintStatus, admin_remarks?: string) {
+  async updateStatus(id: number, complaint_status: ComplaintStatus, admin_remarks?: string, adminId?: number) {
     try {
       const result = await this.findOne(id);
       const complaint = result.data;
 
       complaint.complaint_status = complaint_status;
       complaint.admin_remarks = admin_remarks ?? complaint.admin_remarks;
+      if (adminId !== undefined) {
+        complaint.responded_by = adminId;
+      }
       complaint.updated_at = new Date().toISOString().split('T')[0];
 
       await this.complaintsRepo.save(complaint);
