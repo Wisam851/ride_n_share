@@ -1,13 +1,17 @@
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsNumber,
+} from 'class-validator';
 export class CreateComplaintsDto {
-    @IsInt()
+    @IsNumber()
     complaint_category_id?: number;
     @IsString()
     complaint_issue?: string;
     @IsString()
     complaint_description?: string;
 }
-
-import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateComplaintsDto {
   @IsOptional()
