@@ -23,10 +23,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/common/utils/multer.config';
 
 @Controller('complaints-category')
-@UseGuards(AdminJwtAuthGuard)
 export class ComplaintsCategoryController {
   constructor(private readonly service: ComplaintsCategoryService) {}
 
+@UseGuards(AdminJwtAuthGuard)
   @Post('store')
   @UseInterceptors(FileInterceptor('icon', multerConfig('uploads')))
   async store(
@@ -40,16 +40,25 @@ export class ComplaintsCategoryController {
     return await this.service.create(body, userId);
   }
 
+  @UseGuards(AdminJwtAuthGuard)
   @Get('list-all-categories')
   async findAll() {
     return await this.service.findAll();
   }
 
+  @UseGuards(UserJwtAuthGuard)
+  @Get('list-all-complaint-categories')
+  async findAllUser() {
+    return await this.service.findAll();
+  }
+
+@UseGuards(AdminJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: number) {
     return await this.service.findOne(id);
   }
 
+@UseGuards(AdminJwtAuthGuard)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('icon', multerConfig('uploads')))
   async update(
@@ -63,6 +72,7 @@ export class ComplaintsCategoryController {
     return await this.service.update(id, dto);
   }
 
+@UseGuards(AdminJwtAuthGuard)
   @Delete(':id')
   async delete(@Param('id') id: number) {
     return await this.service.delete(id);
