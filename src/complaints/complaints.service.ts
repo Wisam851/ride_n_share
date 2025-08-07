@@ -52,9 +52,7 @@ export class ComplaintsService {
 
       complaint.complaint_status = complaint_status;
       complaint.admin_remarks = admin_remarks ?? complaint.admin_remarks;
-      if (adminId !== undefined) {
-        complaint.responded_by = adminId;
-      }
+      complaint.responded_by = adminId;
       complaint.updated_at = new Date().toISOString().split('T')[0];
 
       await this.complaintsRepo.save(complaint);
