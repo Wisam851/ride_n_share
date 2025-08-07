@@ -10,13 +10,15 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { ComplaintsService } from './complaints.service';
 import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
+import { ComplaintStatus } from './entity/complaints.entity';
 import {
   CreateComplaintsDto,
-  UpdateComplaintsDto,
+  UpdateComplaintStatusDto,
 } from './dto/complaints.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -25,7 +27,7 @@ import { User } from 'src/users/entity/user.entity';
 
 @Controller('complaints')
 export class ComplaintsController {
-  constructor(private readonly service: ComplaintsService) {}
+  constructor(private readonly complaintServiceRepo: ComplaintsService) {}
 
 @UseGuards(UserJwtAuthGuard)
   @Post('store')
@@ -33,31 +35,41 @@ export class ComplaintsController {
     @Body() body: CreateComplaintsDto,
     @CurrentUser('id') userId: number,
   ) {
-    return await this.service.create(body, userId);
+    return await this.complaintServiceRepo.create(body, userId);
   }
 
   @UseGuards(AdminJwtAuthGuard)
   @Get('list-all-complaints')
   async findAll() {
-    return await this.service.findAll();
+    return await this.complaintServiceRepo.findAll();
   }
+
+  @UseGuards(AdminJwtAuthGuard)
+  @Patch(':id/complaint-status')
+    updateComplaintStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateComplaintStatusDto,
+    ) {
+    return this.complaintServiceRepo.updateStatus(id, dto.complaint_status, dto.admin_remarks);
+    }
+
 
   @UseGuards(UserJwtAuthGuard)
   @Get('userwise-complaints')
   async findAllUser() {
-    return await this.service.findAll();
+    return await this.complaintServiceRepo.findAll();
   }
 
 @UseGuards(AdminJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: number) {
-    return await this.service.findOne(id);
+    return await this.complaintServiceRepo.findOne(id);
   }
 
 @UseGuards(UserJwtAuthGuard)
   @Delete(':id')
   async delete(@Param('id') id: number) {
-    return await this.service.delete(id);
+    return await this.complaintServiceRepo.delete(id);
   }
 }
 

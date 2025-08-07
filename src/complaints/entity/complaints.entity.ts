@@ -8,6 +8,12 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
+export enum ComplaintStatus {
+  PENDING = 'pending',
+  RESPONDED = 'responded',
+  RESOLVED = 'resolved',
+}
+
 @Entity()
 export class complaints {
   @PrimaryGeneratedColumn()
@@ -29,6 +35,16 @@ export class complaints {
     comment: '0 = inactive, 1 = active',
   })
   status: number;
+
+  @Column({
+    type: 'enum',
+    enum: ComplaintStatus,
+    default: ComplaintStatus.PENDING,
+  })
+  complaint_status: ComplaintStatus;
+
+  @Column({ type: 'text', nullable: true })
+  admin_remarks: string;
 
   @Column({ type: 'date' })
   created_at: string;

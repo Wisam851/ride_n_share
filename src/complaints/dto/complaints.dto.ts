@@ -3,7 +3,9 @@ import {
   IsOptional,
   IsNotEmpty,
   IsNumber,
+  IsEnum,
 } from 'class-validator';
+import { ComplaintStatus } from '../entity/complaints.entity';
 export class CreateComplaintsDto {
     @IsNumber()
     complaint_category_id?: number;
@@ -13,12 +15,11 @@ export class CreateComplaintsDto {
     complaint_description?: string;
 }
 
-export class UpdateComplaintsDto {
-  @IsOptional()
-  @IsString()
-  name?: string;
+export class UpdateComplaintStatusDto {
+  @IsEnum(ComplaintStatus)
+  complaint_status: ComplaintStatus;
 
   @IsOptional()
   @IsString()
-  icon?: string;
+  admin_remarks?: string;
 }
