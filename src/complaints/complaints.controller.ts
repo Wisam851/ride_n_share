@@ -45,7 +45,7 @@ export class ComplaintsController {
   }
 
   @UseGuards(AdminJwtAuthGuard)
-  @Patch(':id/complaint-status')
+  @Patch('status/:id')
     updateComplaintStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateComplaintStatusDto,
