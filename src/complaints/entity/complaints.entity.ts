@@ -1,5 +1,6 @@
 import { User } from 'src/users/entity/user.entity';
 import { Admin } from 'src/admin/entity/admin.entity';
+import { RideBooking } from 'src/ride-booking/entity/ride-booking.entity';
 import {
   BeforeInsert,
   Column,
@@ -58,6 +59,13 @@ export class complaints {
 
   @Column({ type: 'int' })
   created_by: number;
+
+  @Column({ type: 'int', nullable: true })
+  ride_id: number;
+
+  @ManyToOne(() => RideBooking, { nullable: true })
+  @JoinColumn({ name: 'ride_id' })
+  ride: RideBooking;
 
   @BeforeInsert()
   setCreateDateParts() {

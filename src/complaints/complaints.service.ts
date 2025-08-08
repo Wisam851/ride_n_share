@@ -23,6 +23,7 @@ export class ComplaintsService {
   async create(body, userId) {
     try {
       const category = this.complaintsRepo.create({
+        ride_id: body.ride_id,
         complaint_category_id: body.complaint_category_id,
         complaint_issue: body.complaint_issue,
         complaint_description: body.complaint_description,
@@ -45,7 +46,12 @@ export class ComplaintsService {
     }
   }
 
-  async updateStatus(id: number, complaint_status: ComplaintStatus, admin_remarks?: string, adminId?: number) {
+  async updateStatus(
+    id: number,
+    complaint_status: ComplaintStatus,
+    admin_remarks?: string,
+    adminId?: number,
+  ) {
     try {
       const result = await this.findOne(id);
       const complaint = result.data;

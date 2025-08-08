@@ -7,12 +7,14 @@ import {
 } from 'class-validator';
 import { ComplaintStatus } from '../entity/complaints.entity';
 export class CreateComplaintsDto {
-    @IsNumber()
-    complaint_category_id?: number;
-    @IsString()
-    complaint_issue?: string;
-    @IsString()
-    complaint_description?: string;
+  @IsNumber()
+  ride_id: number;
+  @IsNumber()
+  complaint_category_id?: number;
+  @IsString()
+  complaint_issue?: string;
+  @IsString()
+  complaint_description?: string;
 }
 
 export class UpdateComplaintStatusDto {
