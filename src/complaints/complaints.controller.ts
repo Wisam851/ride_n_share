@@ -11,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { UserJwtAuthGuard } from 'src/auth/user/user-jwt.guard';
 import { ComplaintsService } from './complaints.service';
@@ -29,7 +30,7 @@ import { User } from 'src/users/entity/user.entity';
 export class ComplaintsController {
   constructor(private readonly complaintServiceRepo: ComplaintsService) {}
 
-@UseGuards(UserJwtAuthGuard)
+  @UseGuards(UserJwtAuthGuard)
   @Post('store')
   async store(
     @Body() body: CreateComplaintsDto,
@@ -46,28 +47,32 @@ export class ComplaintsController {
 
   @UseGuards(AdminJwtAuthGuard)
   @Patch('status/:id')
-    updateComplaintStatus(
+  updateComplaintStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateComplaintStatusDto,
     @CurrentUser('id') adminId: number,
-    ) {
-    return this.complaintServiceRepo.updateStatus(id, dto.complaint_status, dto.admin_remarks,adminId);
-    }
-
+  ) {
+    return this.complaintServiceRepo.updateStatus(
+      id,
+      dto.complaint_status,
+      dto.admin_remarks,
+      adminId,
+    );
+  }
 
   @UseGuards(UserJwtAuthGuard)
   @Get('userwise-complaints')
-  async findAllUser() {
-    return await this.complaintServiceRepo.findAll();
+  async findAllUser(@Query('hrs') hrs: number) {
+    return await this.complaintServiceRepo.findAll(hrs);
   }
 
-@UseGuards(AdminJwtAuthGuard)
+  @UseGuards(AdminJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: number) {
     return await this.complaintServiceRepo.findOne(id);
   }
 
-@UseGuards(UserJwtAuthGuard)
+  @UseGuards(UserJwtAuthGuard)
   @Delete(':id')
   async delete(@Param('id') id: number) {
     return await this.complaintServiceRepo.delete(id);

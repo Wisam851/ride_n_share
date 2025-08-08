@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { complaints } from './entity/complaints.entity';
+import { MoreThan } from 'typeorm';
+
 import {
   CreateComplaintsDto,
   UpdateComplaintStatusDto,
@@ -77,22 +79,30 @@ export class ComplaintsService {
     }
   }
 
-  async findAll() {
+  async findAll(hrs?: number) {
     try {
+      const where: any = { status: 1 };
+
+      if (hrs) {
+        const currentDate = new Date();
+        const pastDate = new Date(currentDate.getTime() - hrs * 60 * 60 * 1000);
+        where.created_at = MoreThan(pastDate);
+      }
+
       const complaints = await this.complaintsRepo.find({
-        where: { status: 1 }, // Only active
+        where,
         relations: ['user'],
       });
 
       return {
         success: true,
-        message: 'Active complaint fetched successfully.',
+        message: 'Active complaints fetched successfully.',
         data: complaints,
       };
     } catch (error) {
       throw new InternalServerErrorException({
         success: false,
-        message: 'Failed to fetch complaint.',
+        message: 'Failed to fetch complaints.',
         error: error.message,
       });
     }
