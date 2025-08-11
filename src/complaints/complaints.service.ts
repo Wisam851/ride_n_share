@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { complaints } from './entity/complaints.entity';
 import { MoreThan } from 'typeorm';
+import { RideBookingService } from 'src/ride-booking/ride-booking.service';
 
 import {
   CreateComplaintsDto,
@@ -20,10 +21,12 @@ export class ComplaintsService {
   constructor(
     @InjectRepository(complaints)
     private complaintsRepo: Repository<complaints>,
+    private rideBookingService: RideBookingService,
   ) {}
 
   async create(body, userId) {
     try {
+      await this.rideBookingService.ensureRideExists(body.ride_id);
       const category = this.complaintsRepo.create({
         ride_id: body.ride_id,
         complaint_category_id: body.complaint_category_id,

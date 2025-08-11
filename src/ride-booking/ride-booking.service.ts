@@ -1773,21 +1773,21 @@ export class RideBookingService {
   }
 
   async getSelectedRideDataOnly(id: number) {
-  try {
-    const rides = await this.rideBookRepo.find({
-      where: { id },
-      order: { created_at: 'DESC' },
-    });
+    try {
+      const rides = await this.rideBookRepo.find({
+        where: { id },
+        order: { created_at: 'DESC' },
+      });
 
-    return {
-      success: true,
-      message: 'Raw ride data fetched successfully',
-      data: rides,
-    };
-  } catch (err) {
-    this.handleUnknown(err);
+      return {
+        success: true,
+        message: 'Raw ride data fetched successfully',
+        data: rides,
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
   }
-}
 
   // Get request + customer id (minimal object)
   async getRequestWithCustomer(requestId: number): Promise<RideRequest | null> {
@@ -2315,5 +2315,11 @@ export class RideBookingService {
           );
 
     return { average, count };
+  }
+
+  async ensureRideExists(rideId: number) {
+    const ride = await this.rideBookRepo.findOne({ where: { id: rideId } });
+    if (!ride) throw new NotFoundException('Ride booking not found');
+    return ride;
   }
 }
