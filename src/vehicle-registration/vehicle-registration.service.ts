@@ -147,7 +147,9 @@ export class VehicleRegistrationService {
 
   async findAll() {
     try {
-      const vehicles = await this.vehicleRepo.find();
+      const vehicles = await this.vehicleRepo.find({
+        relations: ['images'],
+      });
       return {
         success: true,
         message: 'All vehicles fetched successfully',

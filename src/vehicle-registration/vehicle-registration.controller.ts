@@ -120,6 +120,42 @@ export class VehicleRegistrationController {
     });
   }
 
+  // @Roles('admin')
+  @Post('storeby-admin')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'images', maxCount: 10 },
+        { name: 'vehicle_certificate_back', maxCount: 1 },
+        { name: 'vehicle_photo', maxCount: 1 },
+      ],
+      multerConfig('uploads'),
+    ),
+  )
+  async createByAdmin(
+    @Body() dto: CreateVehicleRegistrationDto,
+    @UploadedFiles()
+    files: {
+      images?: Express.Multer.File[];
+      vehicle_certificate_back?: Express.Multer.File[];
+      vehicle_photo?: Express.Multer.File[];
+    },
+  ) {
+    // Validate required files
+    if (!files.vehicle_certificate_back?.[0] || !files.vehicle_photo?.[0]) {
+      throw new BadRequestException(
+        'Certificate and vehicle photo are required',
+      );
+    }
+
+    return this.vehicleService.create({
+      ...dto,
+      images: files.images?.map((img) => img.filename) || [],
+      vehicle_certificate_back: files.vehicle_certificate_back[0].filename,
+      vehicle_photo: files.vehicle_photo[0].filename,
+    });
+  }
+
   @Get()
   findAll() {
     return this.vehicleService.findAll();
