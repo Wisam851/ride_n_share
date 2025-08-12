@@ -111,6 +111,19 @@ export class ComplaintsService {
     }
   }
 
+  async myComplaints(userId: number) {
+    const complaints = await this.complaintsRepo.find({
+      where: { created_by: userId },
+      relations: ['user', 'ride', 'ride.driver'],
+    });
+
+    return {
+      success: true,
+      message: 'complaints fetched successfully.',
+      data: complaints,
+    };
+  }
+
   async findOne(id: number) {
     try {
       const complaints = await this.complaintsRepo.findOne({

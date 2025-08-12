@@ -46,6 +46,7 @@ import {
 } from 'src/common/utils/geo.util';
 import { ConfigService } from '@nestjs/config';
 import { Rating } from 'src/Rating/entity/rating.entity';
+import { MoreThan } from 'typeorm';
 
 @Injectable()
 export class RideBookingService {
@@ -1593,11 +1594,23 @@ export class RideBookingService {
     }
   }
 
-  async getRideHistory(userId: number) {
+  async getRideHistory(userId: number, hrs?: number) {
     try {
+      let where: any[] = [{ customer_id: userId }, { driver_id: userId }];
+
+      if (hrs) {
+        const currentDate = new Date();
+        const pastDate = new Date(currentDate.getTime() - hrs * 60 * 60 * 1000);
+
+        where = [
+          { customer_id: userId, created_at: MoreThan(pastDate) },
+          { driver_id: userId, created_at: MoreThan(pastDate) },
+        ];
+      }
+
       // Eager load driver, customer, fare_standard
       const rides = await this.rideBookRepo.find({
-        where: [{ customer_id: userId }, { driver_id: userId }],
+        where,
         order: { created_at: 'DESC' },
         relations: ['driver', 'customer', 'fare_standard'],
       });

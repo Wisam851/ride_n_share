@@ -95,8 +95,11 @@ export class RideBookingController {
 
   @Roles('driver', 'customer')
   @Get('history')
-  async getRideHistory(@CurrentUser('id') userId: number) {
-    return this.service.getRideHistory(userId);
+  async getRideHistory(
+    @CurrentUser('id') userId: number,
+    @Query('hrs') hrs?: number,
+  ) {
+    return this.service.getRideHistory(userId, hrs);
   }
 
   @Roles('driver', 'customer')
