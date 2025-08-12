@@ -63,7 +63,6 @@ export class ComplaintsController {
   @UseGuards(UserJwtAuthGuard)
   @Get('userwise-complaints')
   async findAllUser(@Query('hrs') hrs: number) {
-    console.log('Hiii');
     return await this.complaintServiceRepo.findAll(hrs);
   }
 
