@@ -94,7 +94,7 @@ export class ComplaintsService {
 
       const complaints = await this.complaintsRepo.find({
         where,
-        relations: ['user'],
+        relations: ['user', 'ride.driver'],
       });
 
       return {
