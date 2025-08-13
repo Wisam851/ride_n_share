@@ -1512,6 +1512,25 @@ export class RideBookingService {
     }
   }
 
+  // ride booking hisor for the admin
+  async rideHistory() {
+    try {
+      const AllRides = await this.rideBookRepo.find({
+        order: { created_at: 'DESC' },
+      });
+
+      return {
+        success: true,
+        message: 'All Ride History',
+        data: {
+          AllRides: AllRides,
+        },
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
   async createRideLog(
     manager: EntityManager,
     ride: RideBooking,
