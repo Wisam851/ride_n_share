@@ -1555,6 +1555,52 @@ export class RideBookingService {
     }
   }
 
+  // ride booking hisor for the admin
+  async rideLogsHistory(
+    StartDate?: Date,
+    EndDate?: Date,
+    userId?: number,
+    driverId?: number,
+    rideid?: number,
+  ) {
+    try {
+      let query = this.rideBookLogRepo
+        .createQueryBuilder('ride_log')
+        .orderBy('ride_log.created_at', 'DESC');
+      /* const AllRides = await this.rideBookRepo.find({
+        order: { created_at: 'DESC' },
+      }); */
+      if (StartDate !== undefined) {
+        query = query.andWhere('ride_log.created_at >= :start', {
+          start: StartDate,
+        });
+      }
+      if (EndDate !== undefined) {
+        query = query.andWhere('ride_log.created_at <= :end', { end: EndDate });
+      }
+      if (userId !== undefined) {
+        query = query.andWhere('ride_log.customer_id = :userId', { userId });
+      }
+      if (driverId !== undefined) {
+        query = query.andWhere('ride_log.driver_id = :driverId', { driverId });
+      }
+      if (rideid !== undefined) {
+        query = query.andWhere('ride_log.ride_id = :rideid', { rideid });
+      }
+
+      const AllRides = await query.getMany();
+
+      return {
+        success: true,
+        message: 'All Ride History',
+        data: {
+          AllRides: AllRides,
+        },
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
   async createRideLog(
     manager: EntityManager,
     ride: RideBooking,
