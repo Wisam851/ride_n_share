@@ -16,20 +16,23 @@ import {
 } from './dtos/admin-permission.dto';
 import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
 
-@Controller('admin/permission-assigning-admin')
 @UseGuards(AdminJwtAuthGuard)
+@Controller('admin/permission-assigning-admin')
 export class AdminPermissionsController {
   constructor(
     private readonly adminPermissionsService: AdminPermissionsService,
   ) {}
 
   @Post('store')
+  @UseGuards(AdminJwtAuthGuard)
   create(@Body() dto: CreateAdminPermissionDto) {
+    console.log("wisam ahmed");
     return this.adminPermissionsService.create(dto);
   }
 
   @Get('index')
   findAll() {
+    console.log("wisam ahmed");
     return this.adminPermissionsService.findAll();
   }
 

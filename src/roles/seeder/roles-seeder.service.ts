@@ -15,7 +15,7 @@ export class RolesSeederService {
     const defaultRoles = [
       { name: 'admin', guard: 'admin' },
       { name: 'manager', guard: 'admin' },
-      { name: 'customer', guard: 'customer' },
+      { name: 'customer', guard: 'user' },
       { name: 'driver', guard: 'user' },
     ];
 
@@ -23,6 +23,13 @@ export class RolesSeederService {
       const exists = await this.roleRepository.findOne({
         where: { name: roleData.name },
       });
+      const guard = await this.roleRepository.findOne({
+        where: { guard: 'customer' },
+      });
+      if (guard) {
+        guard.guard = 'user';
+        await this.roleRepository.save(guard);
+      }
       if (!exists) {
         const role = this.roleRepository.create(roleData);
         await this.roleRepository.save(role);

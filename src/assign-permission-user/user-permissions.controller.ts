@@ -7,14 +7,17 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { UserPermissionsService } from './user-permissions.service';
 import {
   CreateUserPermissionDto,
   UpdateUserPermissionDto,
 } from './dtos/user-permission.dto';
+import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
 
-@Controller('admin/permission-assigning-admin')
+@Controller('admin/permission-assigning-user')
+@UseGuards(AdminJwtAuthGuard)
 export class UserPermissionsController {
   constructor(
     private readonly userPermissionsService: UserPermissionsService,

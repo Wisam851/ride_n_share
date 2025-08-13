@@ -44,7 +44,6 @@ export class ComplaintsCategoryService {
   async findAll() {
     try {
       const categories = await this.categoryRepo.find({
-        where: { status: 1 }, // Only active
         relations: ['admin'],
       });
 
