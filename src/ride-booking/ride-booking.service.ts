@@ -1513,11 +1513,35 @@ export class RideBookingService {
   }
 
   // ride booking hisor for the admin
-  async rideHistory() {
+  async rideHistory(
+    StartDate?: Date,
+    EndDate?: Date,
+    userId?: number,
+    driverId?: number,
+  ) {
     try {
-      const AllRides = await this.rideBookRepo.find({
+      let query = this.rideBookRepo
+        .createQueryBuilder('ride')
+        .orderBy('ride.created_at', 'DESC');
+      /* const AllRides = await this.rideBookRepo.find({
         order: { created_at: 'DESC' },
-      });
+      }); */
+      if (StartDate !== undefined) {
+        query = query.andWhere('ride.created_at >= :start', {
+          start: StartDate,
+        });
+      }
+      if (EndDate !== undefined) {
+        query = query.andWhere('ride.created_at <= :end', { end: EndDate });
+      }
+      if (userId !== undefined) {
+        query = query.andWhere('ride.customer_id = :userId', { userId });
+      }
+      if (driverId !== undefined) {
+        query = query.andWhere('ride.driver_id = :driverId', { driverId });
+      }
+
+      const AllRides = await query.getMany();
 
       return {
         success: true,
