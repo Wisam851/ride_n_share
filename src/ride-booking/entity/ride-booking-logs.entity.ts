@@ -34,4 +34,17 @@ export class RideBookingLog {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   changed_at: Date;
+
+  @Column({ type: 'date', nullable: true })
+  created_at: string;
+
+  @Column({ type: 'date', nullable: true })
+  updated_at: string;
+
+  @BeforeInsert()
+  setCreateDates() {
+    const today = new Date().toISOString().split('T')[0];
+    this.created_at = today;
+    this.updated_at = today;
+  }
 }

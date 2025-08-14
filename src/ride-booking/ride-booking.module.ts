@@ -11,6 +11,7 @@ import { RideRequest } from './entity/requests/ride_requests.entity';
 import { RideRequestRouting } from './entity/requests/ride_request_routing.entity';
 import { RideRequestEvent } from './entity/requests/ride_request_events.entity';
 import { RideDriverOffer } from './entity/requests/ride_driver_offers.entity';
+import { RideBookingAdminController } from './ride-booking-admin.controller';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { RideDriverOffer } from './entity/requests/ride_driver_offers.entity';
       RideDriverOffer,
     ]),
   ],
-  controllers: [RideBookingController],
+  controllers: [RideBookingController, RideBookingAdminController],
   providers: [RideBookingService],
   exports: [RideBookingService],
 })

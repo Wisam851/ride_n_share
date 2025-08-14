@@ -253,7 +253,9 @@ export class RideBookingService {
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw err;
     } finally {
       await queryRunner.release();
@@ -630,7 +632,9 @@ export class RideBookingService {
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1151,7 +1155,9 @@ export class RideBookingService {
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1201,7 +1207,9 @@ export class RideBookingService {
         data: updated,
       };
     } catch (err) {
+      if(queryRunner.isTransactionActive){
       await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1559,8 +1567,6 @@ export class RideBookingService {
   async rideLogsHistory(
     StartDate?: Date,
     EndDate?: Date,
-    userId?: number,
-    driverId?: number,
     rideid?: number,
   ) {
     try {
@@ -1577,12 +1583,6 @@ export class RideBookingService {
       }
       if (EndDate !== undefined) {
         query = query.andWhere('ride_log.created_at <= :end', { end: EndDate });
-      }
-      if (userId !== undefined) {
-        query = query.andWhere('ride_log.customer_id = :userId', { userId });
-      }
-      if (driverId !== undefined) {
-        query = query.andWhere('ride_log.driver_id = :driverId', { driverId });
       }
       if (rideid !== undefined) {
         query = query.andWhere('ride_log.ride_id = :rideid', { rideid });

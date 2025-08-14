@@ -1,17 +1,25 @@
-import { Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { RideBookingService } from './ride-booking.service';
+import { AdminJwtAuthGuard } from 'src/auth/admin/admin-jwt.guard';
 
-@Controller('ride-bookings-history')
+@UseGuards(AdminJwtAuthGuard)
+@Controller('admin/ride-bookings-history')
 export class RideBookingAdminController {
   constructor(private readonly service: RideBookingService) {}
 
   // Admin can view all ride bookings
-  @Get('history')
+  @Get('list')
   async getRideHistory(
     @Query('startDate') startDate?: Date,
     @Query('endDate') endDate?: Date,
-    @Query('driverId', ParseIntPipe) driverId?: number,
-    @Query('customerId', ParseIntPipe) customerId?: number,
+    @Query('driverId') driverId?: number,
+    @Query('customerId') customerId?: number,
   ) {
     if (startDate) {
       startDate = new Date(startDate);
@@ -19,17 +27,25 @@ export class RideBookingAdminController {
     if (endDate) {
       endDate = new Date(endDate);
     }
-
-    return this.service.rideHistory(startDate, endDate, driverId, customerId);
+    const driverIdNumber = driverId
+      ? parseInt(driverId.toString(), 10)
+      : undefined;
+    const customerIdNumber = customerId
+      ? parseInt(customerId.toString(), 10)
+      : undefined;
+    return this.service.rideHistory(
+      startDate,
+      endDate,
+      driverIdNumber,
+      customerIdNumber,
+    );
   }
 
-  @Get('history/logs')
+  @Get('logs')
   async getRideLogsHistory(
     @Query('startDate') startDate?: Date,
     @Query('endDate') endDate?: Date,
-    @Query('driverId', ParseIntPipe) driverId?: number,
-    @Query('customerId', ParseIntPipe) customerId?: number,
-    @Query('rideId', ParseIntPipe) rideId?: number,
+    @Query('rideId') rideId?: number,
   ) {
     if (startDate) {
       startDate = new Date(startDate);
@@ -37,7 +53,12 @@ export class RideBookingAdminController {
     if (endDate) {
       endDate = new Date(endDate);
     }
+    const rideIdNumber = rideId ? parseInt(rideId.toString(), 10) : undefined;
 
-    return this.service.rideLogsHistory(startDate, endDate, driverId, customerId, rideId);
+    return this.service.rideLogsHistory(
+      startDate,
+      endDate,
+      rideIdNumber,
+    );
   }
 }
