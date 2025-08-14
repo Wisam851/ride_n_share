@@ -27,13 +27,14 @@ export class UsersService {
     private roleRepo: Repository<Role>,
     @InjectRepository(UserRole)
     private userRoleRepo: Repository<UserRole>,
-  ) {}
+  ) { }
 
   /* ─────────────────────────────── CREATE USER ─────────────────────────────── */
   async storeUser(dto: CreateUserDto) {
     try {
       const exists = await this.userRepository.findOne({
         where: { email: dto.email },
+        relations: ['userRoles.role'],
       });
       if (exists)
         throw new BadRequestException('User with this email already exists');
@@ -68,7 +69,13 @@ export class UsersService {
   async idnex() {
     // kept the original route name; consider renaming to "index" later
     try {
-      const users = await this.userRepository.find({ relations: ['details'] });
+      const users = await this.userRepository.find({
+        relations: [
+          'details',
+          'userRoles',
+          'userRoles.role'
+        ]
+      });
       const data = users.map(({ password, access_token, ...rest }) => rest);
       return { success: true, message: 'User list', data };
     } catch (err) {
