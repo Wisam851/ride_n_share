@@ -74,7 +74,7 @@ export class RideBookingService {
 
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
   private logger = new Logger('DriverGateway');
   private readonly OFFER_LIFETIME_MS = 20_000; // 20s; change via config/env
 
@@ -630,7 +630,9 @@ export class RideBookingService {
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1084,10 +1086,10 @@ export class RideBookingService {
           count === 0
             ? 0
             : parseFloat(
-                (
-                  ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-                ).toFixed(1),
-              );
+              (
+                ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+              ).toFixed(1),
+            );
         return { average, count };
       };
 
@@ -1143,9 +1145,9 @@ export class RideBookingService {
             coordinates:
               driverLat && driverLng
                 ? {
-                    latitude: driverLat,
-                    longitude: driverLng,
-                  }
+                  latitude: driverLat,
+                  longitude: driverLng,
+                }
                 : null,
           },
         },
@@ -1755,34 +1757,34 @@ export class RideBookingService {
             ride_end_time: ride.ride_end_time,
             driver: driver
               ? {
-                  id: driver.id,
-                  name: driver.name,
-                  phone: driver.phone,
-                  email: driver.email,
-                  image: driver.image,
-                  rating: await this.getUserRatingStats(driver.id),
-                }
+                id: driver.id,
+                name: driver.name,
+                phone: driver.phone,
+                email: driver.email,
+                image: driver.image,
+                rating: await this.getUserRatingStats(driver.id),
+              }
               : null,
             customer: customer
               ? {
-                  id: customer.id,
-                  name: customer.name,
-                  phone: customer.phone,
-                  email: customer.email,
-                  image: customer.image,
-                  rating: await this.getUserRatingStats(customer.id),
-                }
+                id: customer.id,
+                name: customer.name,
+                phone: customer.phone,
+                email: customer.email,
+                image: customer.image,
+                rating: await this.getUserRatingStats(customer.id),
+              }
               : null,
             vehicle: vehicle
               ? {
-                  id: vehicle.id,
-                  vehicleName: vehicle.vehicleName,
-                  registrationNumber: vehicle.registrationNumber,
-                  vehiclemodel: vehicle.vehiclemodel,
-                  company: vehicle.company,
-                  color: vehicle.color,
-                  image: vehicle.image,
-                }
+                id: vehicle.id,
+                vehicleName: vehicle.vehicleName,
+                registrationNumber: vehicle.registrationNumber,
+                vehiclemodel: vehicle.vehiclemodel,
+                company: vehicle.company,
+                color: vehicle.color,
+                image: vehicle.image,
+              }
               : null,
             fare_summary: {
               base_fare: ride.base_fare,
@@ -1814,17 +1816,17 @@ export class RideBookingService {
           locations: {
             pickup: pickup
               ? {
-                  address: pickup.address,
-                  latitude: pickup.latitude,
-                  longitude: pickup.longitude,
-                }
+                address: pickup.address,
+                latitude: pickup.latitude,
+                longitude: pickup.longitude,
+              }
               : null,
             dropoff: dropoff
               ? {
-                  address: dropoff.address,
-                  latitude: dropoff.latitude,
-                  longitude: dropoff.longitude,
-                }
+                address: dropoff.address,
+                latitude: dropoff.latitude,
+                longitude: dropoff.longitude,
+              }
               : null,
             distance_km,
           },
@@ -1965,9 +1967,9 @@ export class RideBookingService {
         phone: driver.phone,
         coordinates: driverLocation
           ? {
-              latitude: driverLocation.latitude,
-              longitude: driverLocation.longitude,
-            }
+            latitude: driverLocation.latitude,
+            longitude: driverLocation.longitude,
+          }
           : null,
       },
       customer: {
@@ -1993,10 +1995,10 @@ export class RideBookingService {
       count === 0
         ? 0
         : parseFloat(
-            (
-              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-            ).toFixed(1),
-          );
+          (
+            ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+          ).toFixed(1),
+        );
 
     return { average, count };
   }
@@ -2411,10 +2413,10 @@ export class RideBookingService {
       count === 0
         ? 0
         : parseFloat(
-            (
-              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-            ).toFixed(1),
-          );
+          (
+            ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+          ).toFixed(1),
+        );
 
     return { average, count };
   }
