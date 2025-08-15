@@ -175,12 +175,27 @@ export class RideBookingService {
     await queryRunner.startTransaction();
 
     try {
+      const driverIds = await this.userRepo.find({
+        where: {
+          status: 1,
+          isVarified: 1,
+          isOnline: 1,
+          userRoles: { role: 'driver' } as any
+        },
+        select: ['id', 'location'],
+      });
+      if (!driverIds || driverIds.length === 0) {
+        throw new NotFoundException('No active drivers found');
+      }
       const fare_standard = await queryRunner.manager.findOne(
         RideFareStandard,
         {
           where: { status: 1 },
         },
       );
+      if (!fare_standard) {
+        throw new BadRequestException('No active fare standard found');
+      }
       const customer = await queryRunner.manager.findOne(User, {
         where: { id: customerId },
         relations: ['userRoles'],
@@ -251,6 +266,7 @@ export class RideBookingService {
         data: {
           rideRequest: rideRequest,
           customer: customer,
+          driverids: [],
         },
       };
     } catch (err) {
@@ -262,6 +278,7 @@ export class RideBookingService {
       await queryRunner.release();
     }
   }
+
   // for the expiration
   @Cron(CronExpression.EVERY_10_SECONDS)
   async handleRideRequestExiration() {
@@ -1529,6 +1546,7 @@ export class RideBookingService {
     driverId?: number,
   ) {
     try {
+      console.log(`StartDate: ${StartDate}, EndDate: ${EndDate}, userId: ${userId}, driverId: ${driverId}`);
       let query = this.rideBookRepo
         .createQueryBuilder('ride')
         .leftJoinAndSelect('ride.customer', 'customer')
@@ -1548,10 +1566,10 @@ export class RideBookingService {
         query = query.andWhere('ride.created_at <= :end', { end: EndDate });
       }
       if (userId !== undefined) {
-        query = query.andWhere('ride.customer_id = :userId', { userId });
+        query = query.andWhere('ride.customer_id = :userId', { userId: userId });
       }
       if (driverId !== undefined) {
-        query = query.andWhere('ride.driver_id = :driverId', { driverId });
+        query = query.andWhere('ride.driver_id = :driverId', { driverId: driverId });
       }
 
       const AllRides = await query.getMany();
@@ -1606,6 +1624,7 @@ export class RideBookingService {
       this.handleUnknown(err);
     }
   }
+
   async createRideLog(
     manager: EntityManager,
     ride: RideBooking,
@@ -1627,13 +1646,13 @@ export class RideBookingService {
 
   async findAll() {
     try {
-      const list = await this.rideBookRepo.find({
+      const Ride = await this.rideBookRepo.find({
         order: { created_at: 'DESC' },
       });
       return {
         success: true,
-        message: 'All ride bookings fetched',
-        data: list,
+        message: 'Ride booking fetched',
+        data: Ride,
       };
     } catch (err) {
       this.handleUnknown(err);

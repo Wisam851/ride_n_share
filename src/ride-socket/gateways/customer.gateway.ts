@@ -28,8 +28,7 @@ import { getRootServer } from '../utils/get-root-server.util';
 
 @WebSocketGateway({ namespace: 'customer', cors: { origin: '*' } })
 export class CustomerGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Namespace; // server for /customer namespace
   private ioServer: Server;
   private logger = new Logger('CustomerGateway');
@@ -39,7 +38,7 @@ export class CustomerGateway
     private readonly rideBookingService: RideBookingService,
     private readonly ratingService: RatingService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   afterInit() {
     this.ioServer = this.server.server;
@@ -339,17 +338,84 @@ export class CustomerGateway
           message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
         });
 
-         //Firebase notification to driver
-      //---------------------------
-      this.notificationService.create({
-        title: 'Ride Confirmed',
-        subtitle: `Your ride has been cancelled by customer`,
-        userId: result.data.driver_id,
+        //Firebase notification to driver
+        //---------------------------
+        this.notificationService.create({
+          title: 'Ride Confirmed',
+          subtitle: `Your ride has been cancelled by customer`,
+          userId: result.data.driver_id,
+        });
+        this.logger.log(
+          `✅ Ride cancelled Notification sent to Driver`,
+        );
+        //---------------------------
+      }
+    } catch (err) {
+      this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);
+      client.emit('ride-cancelled-response', {
+        success: false,
+        message: err.message || 'Cancellation failed',
       });
-      this.logger.log(
-        `✅ Ride cancelled Notification sent to Driver`,
+    }
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_LOCATION_UPDATE)
+  @UseGuards(WsRolesGuard)
+  @WsRoles('driver')
+  async handleRideLocationUpdate(
+    @MessageBody() data: { rideId: number; location: { lat: number; lng: number } },
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log('Handling ride Location Update');
+    const userInfo = this.socketRegistry.getUserFromSocket(client.id);
+    const userRole = userInfo?.role;
+    const userId = userInfo?.userId;
+
+    if (!userId || !userRole) {
+      return client.emit('ride-cancelled-response', {
+        success: false,
+        message: 'User not identified in socket registry',
+      });
+    }
+    try {
+      console.log(
+        `Updating ride location for ride ${data.rideId} by user ${userId} (${userRole})`,
       );
-      //---------------------------
+      const ride = await this.rideBookingService.findOne(data.rideId);
+
+      client.emit('Drivers location update ', data);
+
+      // Notify the opposite party
+      const targetRef =
+        userRole === 'driver'
+          ? this.socketRegistry.getCustomerSocket(ride.data.customer_id)
+          : this.socketRegistry.getDriverSocket(ride.data.driver_id);
+
+      if (targetRef) {
+        const targetNs = this.server.server.of(
+          userRole === 'driver' ? '/customer' : '/driver',
+        );
+        console.log(
+          `Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`,
+        );
+        targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+          type: 'LocationUpdate',
+          rideId: data.rideId,
+          location: data.location,
+          message: `Your ride location has been updated by the ${userRole}`,
+        });
+
+        //Firebase notification to driver
+        //---------------------------
+        // this.notificationService.create({
+        //   title: 'Ride Confirmed',
+        //   subtitle: `Your ride has been cancelled by customer`,
+        //   userId: result.data.driver_id,
+        // });
+        // this.logger.log(
+        //   `✅ Ride cancelled Notification sent to Driver`,
+        // );
+        //---------------------------
       }
     } catch (err) {
       this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);

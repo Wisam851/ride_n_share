@@ -36,8 +36,8 @@ export class RideBookingAdminController {
     return this.service.rideHistory(
       startDate,
       endDate,
-      driverIdNumber,
       customerIdNumber,
+      driverIdNumber,
     );
   }
 

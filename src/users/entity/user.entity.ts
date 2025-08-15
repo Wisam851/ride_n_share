@@ -47,6 +47,9 @@ export class User {
   @Column({ nullable: true })
   image: string;
 
+  @Column({ nullable: true, type: 'json' })
+  location: { lat: number; lng: number } | null;
+
   @Column({
     type: 'smallint',
     default: 1,
