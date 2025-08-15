@@ -91,6 +91,7 @@ export class UsersService {
         }
       });
       const users = usersData.map(u => ({
+        id: u.id,
         name: u.name,
         email: u.email,
         phone: u.phone,
