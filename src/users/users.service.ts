@@ -12,7 +12,7 @@ import { UserDetails } from './entity/user_details.entity';
 import { CreateUserDto, UpdateUserDto } from './dtos/users.dto';
 import { UserDetailsDto } from './dtos/user_details.dto';
 import * as bcrypt from 'bcrypt';
-import { Exclude, instanceToPlain } from 'class-transformer';
+import { Exclude, instanceToPlain, plainToInstance } from 'class-transformer';
 import { Role } from 'src/roles/entity/roles.entity';
 import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
 
@@ -72,12 +72,11 @@ export class UsersService {
       const users = await this.userRepository.find({
         relations: [
           'details',
-          'userRoles',
           'userRoles.role'
-        ]
+        ],
+        select: {}
       });
-      const data = users.map(({ password, access_token, ...rest }) => rest);
-      return { success: true, message: 'User list', data };
+      return { success: true, message: 'User list', data: plainToInstance(User, users) };
     } catch (err) {
       this.handleUnknown(err);
     }

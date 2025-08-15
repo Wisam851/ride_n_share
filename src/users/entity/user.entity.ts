@@ -53,6 +53,7 @@ export class User {
     nullable: false,
     comment: '0 = inactive, 1 = active',
   })
+  @Exclude()
   status: number;
 
   @Column({
@@ -61,6 +62,7 @@ export class User {
     nullable: false,
     comment: '0 = not verified, 1 = verified',
   })
+  @Exclude()
   isVarified: number;
 
   @Column({
@@ -69,12 +71,15 @@ export class User {
     nullable: false,
     comment: '1 for online and 0 for offline',
   })
+  @Exclude()
   isOnline: number;
 
   @Column({ type: 'date' })
+  @Exclude()
   created_at: string;
 
   @Column({ type: 'date' })
+  @Exclude()
   updated_at: string;
 
   @BeforeInsert()
@@ -88,9 +93,11 @@ export class User {
   details: UserDetails;
 
   @Column({ nullable: true })
+  @Exclude()
   access_token: string;
 
   @Column({ nullable: true })
+  @Exclude()
   fcm_token: string;
 
   // @OneToMany(() => UserRole, (userRole) => userRole.role)

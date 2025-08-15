@@ -47,6 +47,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Rating } from 'src/Rating/entity/rating.entity';
 import { MoreThan } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class RideBookingService {
@@ -1207,8 +1208,8 @@ export class RideBookingService {
         data: updated,
       };
     } catch (err) {
-      if(queryRunner.isTransactionActive){
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
       }
       this.handleUnknown(err);
     } finally {
@@ -1530,6 +1531,10 @@ export class RideBookingService {
     try {
       let query = this.rideBookRepo
         .createQueryBuilder('ride')
+        .leftJoinAndSelect('ride.customer', 'customer')
+        .leftJoinAndSelect('ride.driver', 'driver')
+        .addSelect(['customer.id', 'customer.name'])
+        .addSelect(['driver.id', 'driver.name'])
         .orderBy('ride.created_at', 'DESC');
       /* const AllRides = await this.rideBookRepo.find({
         order: { created_at: 'DESC' },
@@ -1555,7 +1560,7 @@ export class RideBookingService {
         success: true,
         message: 'All Ride History',
         data: {
-          AllRides: AllRides,
+          AllRides: plainToInstance(RideBooking, AllRides),
         },
       };
     } catch (err) {
