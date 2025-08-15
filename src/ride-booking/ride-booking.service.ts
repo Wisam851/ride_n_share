@@ -47,6 +47,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Rating } from 'src/Rating/entity/rating.entity';
 import { MoreThan } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class RideBookingService {
@@ -74,7 +75,7 @@ export class RideBookingService {
 
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
   private logger = new Logger('DriverGateway');
   private readonly OFFER_LIFETIME_MS = 20_000; // 20s; change via config/env
 
@@ -174,12 +175,27 @@ export class RideBookingService {
     await queryRunner.startTransaction();
 
     try {
+      const driverIds = await this.userRepo.find({
+        where: {
+          status: 1,
+          isVarified: 1,
+          isOnline: 1,
+          userRoles: { role: 'driver' } as any
+        },
+        select: ['id', 'location'],
+      });
+      if (!driverIds || driverIds.length === 0) {
+        throw new NotFoundException('No active drivers found');
+      }
       const fare_standard = await queryRunner.manager.findOne(
         RideFareStandard,
         {
           where: { status: 1 },
         },
       );
+      if (!fare_standard) {
+        throw new BadRequestException('No active fare standard found');
+      }
       const customer = await queryRunner.manager.findOne(User, {
         where: { id: customerId },
         relations: ['userRoles'],
@@ -250,15 +266,19 @@ export class RideBookingService {
         data: {
           rideRequest: rideRequest,
           customer: customer,
+          driverids: [],
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw err;
     } finally {
       await queryRunner.release();
     }
   }
+
   // for the expiration
   @Cron(CronExpression.EVERY_10_SECONDS)
   async handleRideRequestExiration() {
@@ -630,7 +650,9 @@ export class RideBookingService {
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1084,10 +1106,10 @@ export class RideBookingService {
           count === 0
             ? 0
             : parseFloat(
-                (
-                  ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-                ).toFixed(1),
-              );
+              (
+                ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+              ).toFixed(1),
+            );
         return { average, count };
       };
 
@@ -1143,15 +1165,17 @@ export class RideBookingService {
             coordinates:
               driverLat && driverLng
                 ? {
-                    latitude: driverLat,
-                    longitude: driverLng,
-                  }
+                  latitude: driverLat,
+                  longitude: driverLng,
+                }
                 : null,
           },
         },
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1201,7 +1225,9 @@ export class RideBookingService {
         data: updated,
       };
     } catch (err) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       this.handleUnknown(err);
     } finally {
       await queryRunner.release();
@@ -1520,8 +1546,13 @@ export class RideBookingService {
     driverId?: number,
   ) {
     try {
+      console.log(`StartDate: ${StartDate}, EndDate: ${EndDate}, userId: ${userId}, driverId: ${driverId}`);
       let query = this.rideBookRepo
         .createQueryBuilder('ride')
+        .leftJoinAndSelect('ride.customer', 'customer')
+        .leftJoinAndSelect('ride.driver', 'driver')
+        .addSelect(['customer.id', 'customer.name'])
+        .addSelect(['driver.id', 'driver.name'])
         .orderBy('ride.created_at', 'DESC');
       /* const AllRides = await this.rideBookRepo.find({
         order: { created_at: 'DESC' },
@@ -1535,10 +1566,49 @@ export class RideBookingService {
         query = query.andWhere('ride.created_at <= :end', { end: EndDate });
       }
       if (userId !== undefined) {
-        query = query.andWhere('ride.customer_id = :userId', { userId });
+        query = query.andWhere('ride.customer_id = :userId', { userId: userId });
       }
       if (driverId !== undefined) {
-        query = query.andWhere('ride.driver_id = :driverId', { driverId });
+        query = query.andWhere('ride.driver_id = :driverId', { driverId: driverId });
+      }
+
+      const AllRides = await query.getMany();
+
+      return {
+        success: true,
+        message: 'All Ride History',
+        data: {
+          AllRides: plainToInstance(RideBooking, AllRides),
+        },
+      };
+    } catch (err) {
+      this.handleUnknown(err);
+    }
+  }
+
+  // ride booking hisor for the admin
+  async rideLogsHistory(
+    StartDate?: Date,
+    EndDate?: Date,
+    rideid?: number,
+  ) {
+    try {
+      let query = this.rideBookLogRepo
+        .createQueryBuilder('ride_log')
+        .orderBy('ride_log.created_at', 'DESC');
+      /* const AllRides = await this.rideBookRepo.find({
+        order: { created_at: 'DESC' },
+      }); */
+      if (StartDate !== undefined) {
+        query = query.andWhere('ride_log.created_at >= :start', {
+          start: StartDate,
+        });
+      }
+      if (EndDate !== undefined) {
+        query = query.andWhere('ride_log.created_at <= :end', { end: EndDate });
+      }
+      if (rideid !== undefined) {
+        query = query.andWhere('ride_log.ride_id = :rideid', { rideid });
       }
 
       const AllRides = await query.getMany();
@@ -1576,13 +1646,13 @@ export class RideBookingService {
 
   async findAll() {
     try {
-      const list = await this.rideBookRepo.find({
+      const Ride = await this.rideBookRepo.find({
         order: { created_at: 'DESC' },
       });
       return {
         success: true,
-        message: 'All ride bookings fetched',
-        data: list,
+        message: 'Ride booking fetched',
+        data: Ride,
       };
     } catch (err) {
       this.handleUnknown(err);
@@ -1709,34 +1779,34 @@ export class RideBookingService {
             ride_end_time: ride.ride_end_time,
             driver: driver
               ? {
-                  id: driver.id,
-                  name: driver.name,
-                  phone: driver.phone,
-                  email: driver.email,
-                  image: driver.image,
-                  rating: await this.getUserRatingStats(driver.id),
-                }
+                id: driver.id,
+                name: driver.name,
+                phone: driver.phone,
+                email: driver.email,
+                image: driver.image,
+                rating: await this.getUserRatingStats(driver.id),
+              }
               : null,
             customer: customer
               ? {
-                  id: customer.id,
-                  name: customer.name,
-                  phone: customer.phone,
-                  email: customer.email,
-                  image: customer.image,
-                  rating: await this.getUserRatingStats(customer.id),
-                }
+                id: customer.id,
+                name: customer.name,
+                phone: customer.phone,
+                email: customer.email,
+                image: customer.image,
+                rating: await this.getUserRatingStats(customer.id),
+              }
               : null,
             vehicle: vehicle
               ? {
-                  id: vehicle.id,
-                  vehicleName: vehicle.vehicleName,
-                  registrationNumber: vehicle.registrationNumber,
-                  vehiclemodel: vehicle.vehiclemodel,
-                  company: vehicle.company,
-                  color: vehicle.color,
-                  image: vehicle.image,
-                }
+                id: vehicle.id,
+                vehicleName: vehicle.vehicleName,
+                registrationNumber: vehicle.registrationNumber,
+                vehiclemodel: vehicle.vehiclemodel,
+                company: vehicle.company,
+                color: vehicle.color,
+                image: vehicle.image,
+              }
               : null,
             fare_summary: {
               base_fare: ride.base_fare,
@@ -1768,17 +1838,17 @@ export class RideBookingService {
           locations: {
             pickup: pickup
               ? {
-                  address: pickup.address,
-                  latitude: pickup.latitude,
-                  longitude: pickup.longitude,
-                }
+                address: pickup.address,
+                latitude: pickup.latitude,
+                longitude: pickup.longitude,
+              }
               : null,
             dropoff: dropoff
               ? {
-                  address: dropoff.address,
-                  latitude: dropoff.latitude,
-                  longitude: dropoff.longitude,
-                }
+                address: dropoff.address,
+                latitude: dropoff.latitude,
+                longitude: dropoff.longitude,
+              }
               : null,
             distance_km,
           },
@@ -1919,9 +1989,9 @@ export class RideBookingService {
         phone: driver.phone,
         coordinates: driverLocation
           ? {
-              latitude: driverLocation.latitude,
-              longitude: driverLocation.longitude,
-            }
+            latitude: driverLocation.latitude,
+            longitude: driverLocation.longitude,
+          }
           : null,
       },
       customer: {
@@ -1947,10 +2017,10 @@ export class RideBookingService {
       count === 0
         ? 0
         : parseFloat(
-            (
-              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-            ).toFixed(1),
-          );
+          (
+            ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+          ).toFixed(1),
+        );
 
     return { average, count };
   }
@@ -2365,10 +2435,10 @@ export class RideBookingService {
       count === 0
         ? 0
         : parseFloat(
-            (
-              ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
-            ).toFixed(1),
-          );
+          (
+            ratings.reduce((sum, r) => sum + (r.rating || 0), 0) / count
+          ).toFixed(1),
+        );
 
     return { average, count };
   }

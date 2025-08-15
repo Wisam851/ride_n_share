@@ -20,6 +20,7 @@ export const SOCKET_EVENTS = {
   RIDE_COMPLETED: 'ride-completed',
   RIDE_CANCELLED: 'ride-cancelled',
   RIDE_STATUS_UPDATE: 'ride-status-update', // optional generic push
+  RIDE_LOCATION_UPDATE: 'ride-location-update', // in: driver location updates
 
   RIDE_SUMMARY: 'ride-summary', // out: ride summary after completion
   RIDE_SUMMARY_RESPONSE: 'ride-summary-response', // out: ride summary after completion

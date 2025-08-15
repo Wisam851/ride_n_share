@@ -12,7 +12,7 @@ import { UserDetails } from './entity/user_details.entity';
 import { CreateUserDto, UpdateUserDto } from './dtos/users.dto';
 import { UserDetailsDto } from './dtos/user_details.dto';
 import * as bcrypt from 'bcrypt';
-import { Exclude, instanceToPlain } from 'class-transformer';
+import { Exclude, instanceToPlain, plainToInstance } from 'class-transformer';
 import { Role } from 'src/roles/entity/roles.entity';
 import { UserRole } from 'src/assig-roles-user/entity/user-role.entity';
 
@@ -27,13 +27,14 @@ export class UsersService {
     private roleRepo: Repository<Role>,
     @InjectRepository(UserRole)
     private userRoleRepo: Repository<UserRole>,
-  ) {}
+  ) { }
 
   /* ─────────────────────────────── CREATE USER ─────────────────────────────── */
   async storeUser(dto: CreateUserDto) {
     try {
       const exists = await this.userRepository.findOne({
         where: { email: dto.email },
+        relations: ['userRoles.role'],
       });
       if (exists)
         throw new BadRequestException('User with this email already exists');
@@ -68,9 +69,41 @@ export class UsersService {
   async idnex() {
     // kept the original route name; consider renaming to "index" later
     try {
-      const users = await this.userRepository.find({ relations: ['details'] });
-      const data = users.map(({ password, access_token, ...rest }) => rest);
-      return { success: true, message: 'User list', data };
+      const usersData = await this.userRepository.find({
+        relations: [
+          'details',
+          'userRoles.role'
+        ],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          gender: true,
+          city: true,
+          image: true,
+          status: true,
+          isVarified: true,
+          isOnline: true,
+          details: true,
+          userRoles: false,
+          userVehicles: true
+        }
+      });
+      const users = usersData.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        address: u.address,
+        gender: u.gender,
+        city: u.city,
+        image: u.image,
+        details: u.details,
+        userRoles: u.userRoles?.[0]?.role?.name || null // just "customer"
+      }));
+      return { success: true, message: 'User list', data: plainToInstance(User, users) };
     } catch (err) {
       this.handleUnknown(err);
     }

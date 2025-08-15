@@ -20,7 +20,7 @@ export class UserAuthSeederService {
 
     @InjectRepository(UserRole)
     private readonly userRoleRepo: Repository<UserRole>,
-  ) {}
+  ) { }
 
   async seed(): Promise<void> {
     // // Delete old users by email if they exist
@@ -70,12 +70,14 @@ export class UserAuthSeederService {
     roleName: string;
   }) {
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    if (email === 'customer@gmail.com') {
+    const customer = await this.userRepo.find({ where: { email: email } });
+    const driver = await this.userRepo.find({ where: { email: email } });
+    if (customer) {
       this.logger.log('customer is already added');
       return;
+
     }
-    if (email === 'driver@gmail.com') {
+    if (driver) {
       this.logger.log('Driver is already added');
       return;
     }
