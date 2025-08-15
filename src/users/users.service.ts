@@ -75,6 +75,7 @@ export class UsersService {
           'userRoles.role'
         ],
         select: {
+          id: true,
           name: true,
           email: true,
           phone: true,
