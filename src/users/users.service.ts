@@ -69,13 +69,38 @@ export class UsersService {
   async idnex() {
     // kept the original route name; consider renaming to "index" later
     try {
-      const users = await this.userRepository.find({
+      const usersData = await this.userRepository.find({
         relations: [
           'details',
           'userRoles.role'
         ],
-        select: {}
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          gender: true,
+          city: true,
+          image: true,
+          status: true,
+          isVarified: true,
+          isOnline: true,
+          details: true,
+          userRoles: false,
+          userVehicles: true
+        }
       });
+      const users = usersData.map(u => ({
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        address: u.address,
+        gender: u.gender,
+        city: u.city,
+        image: u.image,
+        details: u.details,
+        userRoles: u.userRoles?.[0]?.role?.name || null // just "customer"
+      }));
       return { success: true, message: 'User list', data: plainToInstance(User, users) };
     } catch (err) {
       this.handleUnknown(err);
