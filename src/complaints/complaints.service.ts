@@ -15,6 +15,11 @@ import {
 } from './dto/complaints.dto';
 // Import ComplaintStatus enum
 import { ComplaintStatus } from './entity/complaints.entity';
+import { RideBookingLog } from 'src/ride-booking/entity/ride-booking-logs.entity';
+import { RideRouting } from 'src/ride-booking/entity/ride-routing.entity';
+import { RideLocationType } from 'src/common/enums/ride-booking.enum';
+import { haversineKm } from 'src/common/utils/geo.util';
+import { complaintsCaterory } from 'src/complaints-category/entity/complaints_category.entity';
 
 @Injectable()
 export class ComplaintsService {
@@ -22,14 +27,33 @@ export class ComplaintsService {
     @InjectRepository(complaints)
     private complaintsRepo: Repository<complaints>,
     private rideBookingService: RideBookingService,
-  ) {}
+
+    @InjectRepository(complaintsCaterory)
+    private complaintsCategoryRepo: Repository<complaintsCaterory>,
+
+    @InjectRepository(RideBookingLog)
+    private readonly rideBookLogRepo: Repository<RideBookingLog>,
+
+    @InjectRepository(RideRouting)
+    private readonly rideRoutingRepo: Repository<RideRouting>,
+  ) { }
 
   async create(body, userId) {
     try {
       await this.rideBookingService.ensureRideExists(body.ride_id);
+      const complaintsCategory = await this.complaintsCategoryRepo.findOne({
+        where: { id: body.complaint_category_id },
+      });
+      if (!complaintsCategory) {
+        throw new NotFoundException({
+          success: false,
+          message: `Complaint category with ID ${body.complaint_category_id} not found.`,
+        });
+      }
       const category = this.complaintsRepo.create({
         ride_id: body.ride_id,
         complaint_category_id: body.complaint_category_id,
+        complaintCategory: complaintsCategory,
         complaint_issue: body.complaint_issue,
         complaint_description: body.complaint_description,
         complaint_status: ComplaintStatus.PENDING, // ⬅️ Ensure it's set
@@ -59,7 +83,7 @@ export class ComplaintsService {
   ) {
     try {
       const result = await this.findOne(id);
-      const complaint = result.data;
+      const complaint = result.data.complaints;
 
       complaint.complaint_status = complaint_status;
       complaint.admin_remarks = admin_remarks ?? complaint.admin_remarks;
@@ -96,11 +120,36 @@ export class ComplaintsService {
         where,
         relations: ['user', 'ride', 'ride.driver'],
       });
+      // Map over complaints to add pickup, dropoff, and distance
+      const complaintsWithLocation = await Promise.all(
+        complaints.map(async (complaint) => {
+          const routings = await this.rideRoutingRepo.find({
+            where: { ride_id: complaint.ride.id },
+          });
 
+          const pickup = routings.find((r) => r.type === RideLocationType.PICKUP) || null;
+          const dropoff = routings.find((r) => r.type === RideLocationType.DROPOFF) || null;
+
+          let distance_km: number | null = null;
+          if (pickup && dropoff) {
+            distance_km = haversineKm(
+              { latitude: pickup.latitude, longitude: pickup.longitude },
+              { latitude: dropoff.latitude, longitude: dropoff.longitude },
+            );
+          }
+
+          return {
+            ...complaint,
+            pickup_location: pickup,
+            dropoff_location: dropoff,
+            distance_km,
+          };
+        })
+      );
       return {
         success: true,
         message: 'Active complaints fetched successfully.',
-        data: complaints,
+        data: complaintsWithLocation,
       };
     } catch (error) {
       throw new InternalServerErrorException({
@@ -116,7 +165,6 @@ export class ComplaintsService {
       where: { created_by: userId },
       relations: ['user', 'ride', 'ride.driver'],
     });
-
     return {
       success: true,
       message: 'complaints fetched successfully.',
@@ -128,8 +176,27 @@ export class ComplaintsService {
     try {
       const complaints = await this.complaintsRepo.findOne({
         where: { id },
-        relations: ['user'],
+        relations: ['user', 'ride', 'complaintCategory'],
       });
+      if (!complaints) {
+        throw new NotFoundException("Complaint not found");
+      }
+      const complaintsCategory = await this.complaintsCategoryRepo.findOne({
+        where: { id: complaints.complaint_category_id },
+      });
+      const rideRoutingPickUp = await this.rideRoutingRepo.findOne({
+        where: { ride_id: complaints.ride_id, type: RideLocationType.PICKUP },
+      });
+      const rideRoutingDropOff = await this.rideRoutingRepo.findOne({
+        where: { ride_id: complaints.ride_id, type: RideLocationType.DROPOFF },
+      });
+      let distance_km: number | null = null;
+      if (rideRoutingPickUp && rideRoutingDropOff) {
+        distance_km = haversineKm(
+          { latitude: rideRoutingPickUp.latitude, longitude: rideRoutingPickUp.longitude },
+          { latitude: rideRoutingDropOff.latitude, longitude: rideRoutingDropOff.longitude },
+        );
+      }
 
       if (!complaints) {
         throw new NotFoundException({
@@ -139,10 +206,17 @@ export class ComplaintsService {
         });
       }
 
+
       return {
         success: true,
         message: `Complaint with ID ${id} fetched successfully.`,
-        data: complaints,
+        data: {
+          complaints: complaints,
+          complaintsCategory: complaintsCategory,
+          pickup_location: rideRoutingPickUp,
+          dropoff_location: rideRoutingDropOff,
+          distance_km: distance_km,
+        },
       };
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -157,7 +231,7 @@ export class ComplaintsService {
   async delete(id: number) {
     try {
       const result = await this.findOne(id);
-      const complaints = result.data;
+      const complaints = result.data.complaints;
 
       complaints.status = complaints.status === 0 ? 1 : 0;
       complaints.updated_at = new Date().toISOString().split('T')[0];

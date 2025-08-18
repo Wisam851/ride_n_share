@@ -153,6 +153,7 @@ export class UserAuthService {
       const token = this.jwtService.sign(payload, { expiresIn: '7d' });
       user.access_token = token;
       user.fcm_token = fcm_token;
+      // user.isOnline = 1;
 
       await this.userRepository.save(user);
 

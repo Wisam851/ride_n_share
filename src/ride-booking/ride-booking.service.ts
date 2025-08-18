@@ -175,18 +175,6 @@ export class RideBookingService {
     await queryRunner.startTransaction();
 
     try {
-      const driverIds = await this.userRepo.find({
-        where: {
-          status: 1,
-          isVarified: 1,
-          isOnline: 1,
-          userRoles: { role: 'driver' } as any
-        },
-        select: ['id', 'location'],
-      });
-      if (!driverIds || driverIds.length === 0) {
-        throw new NotFoundException('No active drivers found');
-      }
       const fare_standard = await queryRunner.manager.findOne(
         RideFareStandard,
         {

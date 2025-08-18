@@ -72,8 +72,8 @@ export class ComplaintsController {
     return await this.complaintServiceRepo.myComplaints(userId);
   }
 
-  @UseGuards(AdminJwtAuthGuard)
-  @Get(':id')
+  @UseGuards(UserJwtAuthGuard)
+  @Get('details/:id')
   async findOne(@Param('id') id: number) {
     return await this.complaintServiceRepo.findOne(id);
   }

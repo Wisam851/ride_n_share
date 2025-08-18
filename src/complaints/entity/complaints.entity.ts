@@ -9,6 +9,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { complaintsCaterory } from 'src/complaints-category/entity/complaints_category.entity';
 
 export enum ComplaintStatus {
   PENDING = 'pending',
@@ -22,7 +23,11 @@ export class complaints {
   id: number;
 
   @Column()
-  complaint_category_id: string;
+  complaint_category_id: number;
+
+  @ManyToOne(() => complaintsCaterory, {nullable: true})
+  @JoinColumn({ name: 'complaint_category_id' })
+  complaintCategory: complaintsCaterory;
 
   @Column()
   complaint_issue: string;
