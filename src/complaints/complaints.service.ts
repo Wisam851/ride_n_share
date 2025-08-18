@@ -50,9 +50,17 @@ export class ComplaintsService {
           message: `Complaint category with ID ${body.complaint_category_id} not found.`,
         });
       }
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = '';
+
+      for (let i = 0; i < 8; i++) {
+        const randomIndex = Math.floor(Math.random() * chars.length);
+        result += chars[randomIndex];
+      }
       const category = this.complaintsRepo.create({
         ride_id: body.ride_id,
         complaint_category_id: body.complaint_category_id,
+        Complaint_number: result,
         complaintCategory: complaintsCategory,
         complaint_issue: body.complaint_issue,
         complaint_description: body.complaint_description,
@@ -176,7 +184,7 @@ export class ComplaintsService {
     try {
       const complaints = await this.complaintsRepo.findOne({
         where: { id },
-        relations: ['user', 'ride', 'complaintCategory'],
+        relations: ['user', 'ride', 'ride.driver', 'complaintCategory'],
       });
       if (!complaints) {
         throw new NotFoundException("Complaint not found");

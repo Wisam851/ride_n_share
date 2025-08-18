@@ -35,6 +35,9 @@ export class complaints {
   @Column()
   complaint_description: string;
 
+  @Column({ nullable: true })
+  Complaint_number: string;
+
   @Column({
     type: 'smallint',
     default: 1,

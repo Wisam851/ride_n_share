@@ -24,11 +24,10 @@ import { inspect } from 'util';
 @WebSocketGateway({ namespace: 'driver', cors: { origin: '*' } })
 export class DriverGateway
   implements
-    OnGatewayInit,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    OnModuleInit
-{
+  OnGatewayInit,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  OnModuleInit {
   @WebSocketServer()
   server: Namespace;
 
@@ -38,7 +37,7 @@ export class DriverGateway
     private readonly rideBookingService: RideBookingService,
     private readonly socketRegistry: SocketRegisterService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   onModuleInit() {
     this.logger.log('🚀 DriverGateway loaded');
@@ -458,17 +457,17 @@ export class DriverGateway
           message: `Your ride has been cancelled by the ${userRole}: ${body.reason}`,
         });
 
-         //Firebase notification to customer
-      //---------------------------
-      this.notificationService.createFromDriver({
-        title: 'Ride cancelled',
-        subtitle: `Your ride has been cancelled by Driver`,
-        userId: result.data.customer_id,
-      });
-      this.logger.log(
-        `✅ Ride cancelled Notification sent to customer`,
-      );
-      //---------------------------
+        //Firebase notification to customer
+        //---------------------------
+        this.notificationService.createFromDriver({
+          title: 'Ride cancelled',
+          subtitle: `Your ride has been cancelled by Driver`,
+          userId: result.data.customer_id,
+        });
+        this.logger.log(
+          `✅ Ride cancelled Notification sent to customer`,
+        );
+        //---------------------------
       }
     } catch (err) {
       this.logger.error(`❌ RIDE_CANCELLED Error: ${err.message}`);
@@ -479,7 +478,7 @@ export class DriverGateway
     }
   }
 
-    @SubscribeMessage(SOCKET_EVENTS.RIDE_LOCATION_UPDATE)
+  @SubscribeMessage(SOCKET_EVENTS.RIDE_LOCATION_UPDATE)
   @UseGuards(WsRolesGuard)
   @WsRoles('driver')
   async handleRideLocationUpdate(
@@ -502,7 +501,10 @@ export class DriverGateway
         `Updating ride location for ride ${data.rideId} by user ${userId} (${userRole})`,
       );
       const ride = await this.rideBookingService.findOne(data.rideId);
-
+      if (!ride) {
+        throw new Error(`Ride with ID ${data.rideId} not found`);
+      }
+      const routing = await this.rideBookingService.getRideRouting(data.rideId);
       client.emit('Drivers location update ', data);
 
       // Notify the opposite party
@@ -519,9 +521,10 @@ export class DriverGateway
           `Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`,
         );
         targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
-          type: 'LocationUpdate',
+          type: 'Ride-Location-Update',
           rideId: data.rideId,
-          location: data.location,
+          currentLocation: data.location,
+          routing: routing,
           message: `Your ride location has been updated by the ${userRole}`,
         });
 

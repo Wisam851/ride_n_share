@@ -1920,6 +1920,14 @@ export class RideBookingService {
     return rows.map((r) => r.driver_id);
   }
 
+  // ride routing by the ride id
+  async getRideRouting(rideId: number): Promise<RideRouting[]> {
+    const routing = await this.rideRoutingRepo.find({ where: { ride_id: rideId } });
+    if(!routing || routing.length === 0){
+      throw new NotFoundException('No routing found for this ride');
+    }
+    return routing;
+  }
   // All drivers who offered EXCEPT the winning driver
   async getLosingDriversForRequest(
     requestId: number,
