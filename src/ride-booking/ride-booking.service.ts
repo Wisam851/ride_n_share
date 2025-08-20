@@ -188,7 +188,40 @@ export class RideBookingService {
         where: { id: customerId },
         relations: ['userRoles'],
       });
+      // const pickup = dto.routing.find((r) => r.type === RideLocationType.PICKUP);
+      // if (!pickup) {
+      //   throw new BadRequestException('Pickup location is required.');
+      // }
+      // // 2. Get online drivers with role = driver
+      // const drivers = await this.dataSource.manager.find(User, {
+      //   where: {
+      //     isOnline: 1,
+      //     userRoles: {
+      //       role: { name: 'driver' },
+      //     },
+      //   },
+      //   relations: ['userRoles', 'userRoles.role'],
+      //   select: ['id', 'name', 'location'],
+      // });
 
+      // // 3. Filter drivers within 5 km of pickup
+      // const nearbyDrivers = drivers
+      //   .filter((driver) => driver.location) // skip null locations
+      //   .map((driver) => {
+      //     if (!driver.location) {
+      //       return { ...driver, distance: null };
+      //     }
+      //     const distance = haversineKm(
+      //       { latitude: driver.location.lat, longitude: driver.location.lng },
+      //       { latitude: pickup.latitude, longitude: pickup.longitude },
+      //     );
+
+      //     return { ...driver, distance };
+      //   })
+      //   .filter((driver) => driver.distance !== null && driver.distance <= 5); // 5 km threshold
+
+      // // 4. Extract driver IDs
+      // const driverIds = nearbyDrivers.map((d) => d.id);
       if (!customer) throw new BadRequestException('No customer found');
       if (!fare_standard)
         throw new BadRequestException('No active fare standard found');
@@ -291,160 +324,6 @@ export class RideBookingService {
       this.logger.warn(`Ride request ID ${request.id} marked as EXPIRED`);
     }
   }
-  /** 2. Driver offers to take the ride */
-  // async offerRide(requestId: number, driverId: number, dto: DriverOfferDto) {
-  //   const queryRunner = this.dataSource.createQueryRunner();
-  //   await queryRunner.connect();
-  //   await queryRunner.startTransaction();
-
-  //   try {
-  //     // --- lock ride request row ---
-  //     const rideRequest = await queryRunner.manager.findOne(RideRequest, {
-  //       where: { id: requestId },
-  //       lock: { mode: 'pessimistic_write' },
-  //     });
-  //     if (!rideRequest)
-  //       throw new BadRequestException('Ride request not found.');
-
-  //     // --- driver exists? ---
-  //     const driver = await queryRunner.manager.findOne(User, {
-  //       where: { id: driverId },
-  //     });
-  //     if (!driver) throw new BadRequestException('Driver Not Registered.');
-
-  //     // --- status ok? ---
-  //     if (
-  //       rideRequest.status !== RideStatus.REQUESTED &&
-  //       rideRequest.status !== RideStatus.DRIVER_OFFERED
-  //     ) {
-  //       throw new BadRequestException(
-  //         `Ride request not offerable in current status: ${rideRequest.status}`,
-  //       );
-  //     }
-
-  //     // --- request not expired ---
-  //     const now = new Date();
-  //     if (rideRequest.expires_at && rideRequest.expires_at <= now) {
-  //       throw new BadRequestException('Ride request already expired.');
-  //     }
-
-  //     // --- get pickup coords from routing ---
-  //     const pickup = await this.getPickupCoords(queryRunner.manager, requestId);
-  //     const dropoff = await this.getDropoffCoords(
-  //       queryRunner.manager,
-  //       requestId,
-  //     );
-
-  //     // pickup may be null if bad data; we continue but no distance calc
-  //     let distanceKm: number | null = null;
-  //     let etaMin: number | null = null;
-  //     if (pickup) {
-  //       distanceKm = haversineKm(
-  //         { latitude: dto.latitude, longitude: dto.longitude },
-  //         pickup,
-  //       );
-  //       etaMin = estimateEtaMinutes(distanceKm, this.getDriverAvgSpeedKmh());
-  //     }
-
-  //     // build meta to store on offer
-  //     const meta = {
-  //       driver_lat: dto.latitude,
-  //       driver_lng: dto.longitude,
-  //       pickup_lat: pickup?.latitude ?? null,
-  //       pickup_lng: pickup?.longitude ?? null,
-  //       pickup_address: pickup?.address ?? null,
-  //       dropoff_lat: dropoff?.latitude ?? null,
-  //       dropoff_lng: dropoff?.longitude ?? null,
-  //       dropoff_address: dropoff?.address ?? null,
-  //       distance_km: distanceKm,
-  //       eta_min: etaMin,
-  //     };
-
-  //     // --- upsert offer ---
-  //     const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
-  //     const expiresAt = new Date(Date.now() + this.OFFER_LIFETIME_MS);
-
-  //     let offer = await offerRepo.findOne({
-  //       where: { request_id: requestId, driver_id: driverId },
-  //       lock: { mode: 'pessimistic_write' },
-  //     });
-
-  //     if (!offer) {
-  //       offer = offerRepo.create({
-  //         request_id: requestId,
-  //         rideRequest,
-  //         driver_id: driverId,
-  //         offered_at: now,
-  //         expires_at: expiresAt,
-  //         status: RideDriverOfferStatus.ACTIVE,
-  //         meta_json: meta,
-  //       });
-  //       await offerRepo.save(offer);
-  //     } else {
-  //       if (
-  //         ![
-  //           RideDriverOfferStatus.SELECTED,
-  //           RideDriverOfferStatus.REJECTED,
-  //           RideDriverOfferStatus.WITHDRAWN,
-  //         ].includes(offer.status)
-  //       ) {
-  //         offer.offered_at = now;
-  //         offer.expires_at = expiresAt;
-  //         offer.status = RideDriverOfferStatus.ACTIVE;
-  //         offer.meta_json = meta; // replace old snapshot
-  //         await offerRepo.save(offer);
-  //       }
-  //     }
-
-  //     // --- update request status if first offer ---
-  //     if (rideRequest.status === RideStatus.REQUESTED) {
-  //       rideRequest.status = RideStatus.DRIVER_OFFERED;
-  //       await queryRunner.manager.save(rideRequest);
-  //     }
-
-  //     // --- audit event ---
-  //     const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
-  //     const event = eventRepo.create({
-  //       rideRequest,
-  //       event_type: 'driver_offered',
-  //       actor_type: RideEventActorType.DRIVER,
-  //       actor_id: driverId,
-  //       actor: driver,
-  //       payload_json: {
-  //         driverId,
-  //         requestId,
-  //         driver_location: { lat: dto.latitude, lng: dto.longitude },
-  //         distance_km: distanceKm,
-  //         eta_min: etaMin,
-  //       },
-  //     });
-  //     await eventRepo.save(event);
-
-  //     await queryRunner.commitTransaction();
-
-  //     const offerWithDriver = await this.dataSource
-  //       .getRepository(RideDriverOffer)
-  //       .findOne({
-  //         where: { id: offer.id },
-  //         relations: ['driver', 'rideRequest', 'rideRequest.customer'],
-  //       });
-
-  //     // Post-commit async actions (socket / expiry scheduling)
-  //     // this.scheduleDriverOfferExpiry(offer.id, expiresAt);
-  //     // this.socketGateway.emitDriverOffered({ requestId, driverId, offerId: offer.id });
-
-  //     return {
-  //       success: true,
-  //       message: 'Driver offer recorded.',
-  //       data: { driver: offerWithDriver?.driver, offer, request: rideRequest },
-  //     };
-  //   } catch (err) {
-  //     await queryRunner.rollbackTransaction();
-  //     this.handleUnknown(err);
-  //   } finally {
-  //     await queryRunner.release();
-  //   }
-  // }
 
   async offerRide(requestId: number, driverId: number, dto: DriverOfferDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -670,234 +549,6 @@ export class RideBookingService {
       this.logger.warn('Driver request expired andn not selected');
     }
   }
-
-  // async confirmDriver(requestId: number, driverId: number, customerId: number) {
-  //   const queryRunner = this.dataSource.createQueryRunner();
-  //   await queryRunner.connect();
-  //   await queryRunner.startTransaction();
-  //   const usersQuery = queryRunner.manager.getRepository(User);
-
-  //   try {
-  //     const customer = await usersQuery.findOne({ where: { id: customerId } });
-  //     if (!customer) throw new NotFoundException('Customer not found');
-
-  //     const driver = await usersQuery.findOne({ where: { id: driverId } });
-  //     if (!driver) throw new NotFoundException('Driver not found');
-
-  //     if (driver.isOnline !== 1) {
-  //       throw new BadRequestException('Driver is offline');
-  //     }
-
-  //     const fare_standard = await queryRunner.manager.findOne(RideFareStandard, {
-  //       where: { status: 1 },
-  //     });
-  //     if (!fare_standard) {
-  //       throw new BadRequestException('No active fare standard found');
-  //     }
-
-  //     const rideRequest = await queryRunner.manager
-  //       .getRepository(RideRequest)
-  //       .createQueryBuilder('req')
-  //       .where('req.id = :id', { id: requestId })
-  //       .setLock('pessimistic_write')
-  //       .getOne();
-
-  //     if (!rideRequest) throw new NotFoundException('Ride request not found');
-  //     if (rideRequest.customer_id !== customerId) {
-  //       throw new ForbiddenException('Access denied');
-  //     }
-  //     if (
-  //       rideRequest.status !== RideStatus.REQUESTED &&
-  //       rideRequest.status !== RideStatus.DRIVER_OFFERED
-  //     ) {
-  //       throw new BadRequestException('Request cannot be confirmed.');
-  //     }
-
-  //     if (rideRequest.expires_at && rideRequest.expires_at <= new Date()) {
-  //       throw new BadRequestException('Ride request expired.');
-  //     }
-
-  //     const expected = await this.calculateFare({
-  //       ride_km: rideRequest.ride_km,
-  //       ride_timing: rideRequest.ride_timing,
-  //     });
-  //     const expectedFare = expected.data;
-  //     if (!expectedFare) {
-  //       throw new BadRequestException('Failed to calculate expected fare');
-  //     }
-
-  //     const expectedTotal = Number(expectedFare.total_fare);
-  //     const expectedBase = Number(expectedFare.base_fare);
-  //     const requestTotal = Number(rideRequest.total_fare);
-  //     const requestBase = Number(rideRequest.base_fare);
-
-  //     if (expectedTotal !== requestTotal || expectedBase !== requestBase) {
-  //       throw new BadRequestException('The fare did not match');
-  //     }
-
-  //     const offerRepo = queryRunner.manager.getRepository(RideDriverOffer);
-  //     const offers = await offerRepo
-  //       .createQueryBuilder('o')
-  //       .where('o.request_id = :id', { id: requestId })
-  //       .setLock('pessimistic_write')
-  //       .getMany();
-
-  //     const selectedOffer = offers.find((o) => o.driver_id === driverId);
-  //     if (!selectedOffer) {
-  //       throw new BadRequestException('Driver did not offer for this request.');
-  //     }
-  //     if (selectedOffer.status !== RideDriverOfferStatus.ACTIVE) {
-  //       throw new BadRequestException('Offer is no longer active.');
-  //     }
-
-  //     selectedOffer.status = RideDriverOfferStatus.SELECTED;
-  //     await offerRepo.save(selectedOffer);
-
-  //     for (const offer of offers) {
-  //       if (
-  //         offer.id !== selectedOffer.id &&
-  //         offer.status === RideDriverOfferStatus.ACTIVE
-  //       ) {
-  //         offer.status = RideDriverOfferStatus.REJECTED;
-  //         await offerRepo.save(offer);
-  //       }
-  //     }
-
-  //     const booking = queryRunner.manager.create(RideBooking, {
-  //       ride_type: rideRequest.ride_type,
-  //       customer_id: rideRequest.customer_id,
-  //       driver_id: driverId,
-  //       fare_standard_id: rideRequest.fare_standard_id,
-  //       ride_km: rideRequest.ride_km,
-  //       ride_timing: rideRequest.ride_timing,
-  //       base_fare: expectedFare.base_fare,
-  //       total_fare: expectedFare.total_fare,
-  //       discount: expectedFare.discount,
-  //       additional_cost: expectedFare.additional_cost,
-  //       surcharge_amount: expectedFare.surcharge_amount,
-  //       company_fees_amount: expectedFare.company_fees_amount,
-  //       app_fees_amount: expectedFare.app_fees_amount,
-  //       driver_fees_amount: expectedFare.driver_fees_amount,
-  //       ride_status: RideStatus.CONFIRMED,
-  //       otp_code: this.generateOtp(6),
-  //       created_by: rideRequest.customer_id,
-  //     });
-  //     await queryRunner.manager.save(booking);
-
-  //     const reqRouting = await queryRunner.manager.find(RideRequestRouting, {
-  //       where: { request_id: requestId },
-  //       order: { seq: 'ASC' },
-  //     });
-
-  //     const routingEntities = reqRouting.map((r) =>
-  //       queryRunner.manager.create(RideRouting, {
-  //         ride_id: booking.id,
-  //         type: r.type,
-  //         latitude: r.latitude,
-  //         longitude: r.longitude,
-  //         address: r.address,
-  //         created_by: customerId,
-  //       }),
-  //     );
-  //     await queryRunner.manager.save(RideRouting, routingEntities);
-
-  //     const driverMeta = selectedOffer.meta_json || {};
-  //     const driverLat = driverMeta.driver_lat || driverMeta.latitude;
-  //     const driverLng = driverMeta.driver_lng || driverMeta.longitude;
-
-  //     if (!driverLat || !driverLng) {
-  //       throw new BadRequestException('Driver location missing in offer meta.');
-  //     }
-
-  //     const driverRouting = queryRunner.manager.create(RideRouting, {
-  //       ride_id: booking.id,
-  //       type: RideLocationType.DRIVER_LOCATION,
-  //       latitude: driverLat,
-  //       longitude: driverLng,
-  //       address: driverMeta.address || 'Driver current location',
-  //       created_by: driverId,
-  //     });
-  //     await queryRunner.manager.save(driverRouting);
-
-  //     rideRequest.status = RideStatus.CONFIRMED;
-  //     rideRequest.confirmed_driver_id = driverId;
-  //     rideRequest.confirmed_booking_id = booking.id;
-  //     await queryRunner.manager.save(rideRequest);
-
-  //     const eventRepo = queryRunner.manager.getRepository(RideRequestEvent);
-  //     const confirmEvents = [
-  //       eventRepo.create({
-  //         request_id: rideRequest.id,
-  //         event_type: 'customer_selected_driver',
-  //         actor_type: RideEventActorType.CUSTOMER,
-  //         actor_id: customerId,
-  //         payload_json: { driverId },
-  //       }),
-  //       eventRepo.create({
-  //         request_id: rideRequest.id,
-  //         event_type: 'request_confirmed',
-  //         actor_type: RideEventActorType.SYSTEM,
-  //         payload_json: { bookingId: booking.id },
-  //       }),
-  //     ];
-  //     await eventRepo.save(confirmEvents);
-
-  //     await this.createRideLog(
-  //       queryRunner.manager,
-  //       booking,
-  //       RideStatus.CONFIRMED,
-  //       RideBookingNotes.CONFIRMED,
-  //       driverId,
-  //     );
-
-  //     // ⭐ NEW: Get rating of customer
-  //     const ratingRepo = queryRunner.manager.getRepository(Rating);
-  //     const ratings = await ratingRepo.find({
-  //       where: { user_id: customerId },
-  //     });
-
-  //     const customer_rating =
-  //       ratings.length > 0
-  //         ? parseFloat(
-  //             (
-  //               ratings.reduce((sum, r) => sum + (r.rating || 0), 0) /
-  //               ratings.length
-  //             ).toFixed(1),
-  //           )
-  //         : 0;
-
-  //     const allRouting = await queryRunner.manager.find(RideRouting, {
-  //       where: { ride_id: booking.id },
-  //       order: { id: 'ASC' },
-  //     });
-
-  //     const pickup = allRouting.find((r) => r.type === RideLocationType.PICKUP);
-  //     const dropoff = allRouting.find(
-  //       (r) => r.type === RideLocationType.DROPOFF,
-  //     );
-
-  //     await queryRunner.commitTransaction();
-
-  //     return {
-  //       success: true,
-  //       bookingId: booking.id,
-  //       data: {
-  //         ride: booking,
-  //         customer,
-  //         driver,
-  //         pickup,
-  //         dropoff,
-  //         fare: expectedFare,
-  //         customer_rating,
-  //       },
-  //     };
-  //   } catch (err) {
-  //     await queryRunner.rollbackTransaction();
-  //     this.handleUnknown(err);
-  //   } finally {
-  //     await queryRunner.release();
-  //   }
-  // }
 
   async confirmDriver(requestId: number, driverId: number, customerId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -1923,7 +1574,7 @@ export class RideBookingService {
   // ride routing by the ride id
   async getRideRouting(rideId: number): Promise<RideRouting[]> {
     const routing = await this.rideRoutingRepo.find({ where: { ride_id: rideId } });
-    if(!routing || routing.length === 0){
+    if (!routing || routing.length === 0) {
       throw new NotFoundException('No routing found for this ride');
     }
     return routing;
