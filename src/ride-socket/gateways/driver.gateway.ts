@@ -505,8 +505,14 @@ export class DriverGateway
         throw new Error(`Ride with ID ${data.rideId} not found`);
       }
       const routing = await this.rideBookingService.getRideRouting(data.rideId);
-      client.emit('Drivers location update ', data);
-
+      // client.emit('Drivers location update ', data);
+      client.emit(SOCKET_EVENTS.RIDE_LOCATION_UPDATE, {
+        type: 'Ride-Location-Update',
+        rideId: data.rideId,
+        currentLocation: data.location,
+        routing: routing,
+        message: `Your ride location has been updated by the ${userRole}`,
+      });
       // Notify the opposite party
       const targetRef =
         userRole === 'driver'
@@ -520,7 +526,7 @@ export class DriverGateway
         console.log(
           `Notifying ${userRole === 'driver' ? 'customer' : 'driver'} about cancellation`,
         );
-        targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_STATUS_UPDATE, {
+        targetNs.to(targetRef.socketId).emit(SOCKET_EVENTS.RIDE_LOCATION_UPDATE, {
           type: 'Ride-Location-Update',
           rideId: data.rideId,
           currentLocation: data.location,
