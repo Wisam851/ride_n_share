@@ -47,14 +47,8 @@ export class User {
   @Column({ nullable: true })
   image: string;
 
-  @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    nullable: true,
-    srid: 4326,
-    comment: 'User location in longitude and latitude',
-  })
-  location: string;
+  @Column({ nullable: true, type: 'json' })
+  location: { lat: number; lng: number } | null;
 
   @Column({
     type: 'smallint',
